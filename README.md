@@ -1,3 +1,34 @@
-# HA Security Check\n\nAudit your Home Assistant security configuration. Checks SSL, authentication, exposed ports, addon security, integration permissions, and network settings.\n\n## Installation\n\n### HACS (recommended)\n\n1. Open HACS in Home Assistant\n2. Go to **Frontend** section\n3. Click **â®** (three dots) > **Custom repositories**\n4. Add `https://github.com/MacSiem/ha-security-check` as **Dashboard** (or **Plugin**)\n5. Install **HA Security Check**\n6. Restart Home Assistant\n\n### Manual\n\nCopy the contents to `/config/www/community/ha-security-check/`\n\n## Design\n\nUses **Modern Bento Light Mode** design system:\n- Background: `#F8FAFC`\n- Primary: `#3B82F6`\n- Text: `#1E293B`\n- Border: `#E2E8F0`\n- Font: Inter, 16px border-radius, smooth animations\n\n## License\n\nMIT\n
+# HA Security Check
 
-![Security Check Screenshot](screenshot.png)
+![HA Security Check Screenshot](screenshot.png)
+
+Audit your Home Assistant security configuration. Checks SSL, authentication, exposed ports, and addon security.
+
+## Installation
+
+### HACS (recommended)
+
+1. Open HACS in Home Assistant
+2. Go to **Frontend** section
+3. Click the three dots menu > **Custom repositories**
+4. Add `https://github.com/MacSiem/ha-security-check` as **Dashboard**
+5. Install **HA Security Check**
+6. Restart Home Assistant
+
+### Manual
+
+Copy the contents to `/config/www/community/ha-security-check/`
+
+## Design
+
+Uses **Modern Bento Light Mode** design system:
+
+- Background: `#F8FAFC`
+- Primary: `#3B82F6`
+- Text: `#1E293B`
+- Border: `#E2E8F0`
+- Font: Inter, 16px border-radius, smooth animations
+
+## License
+
+MIT
