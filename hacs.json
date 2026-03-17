@@ -1,5 +1,5 @@
 {
-  "name": "Security Check",
-  "render_readme": true,
-  "content_in_root": true
+    "name":  "Security Check",
+    "filename":  "ha-security-check.js",
+    "render_readme":  true
 }

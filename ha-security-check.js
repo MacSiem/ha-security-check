@@ -1,4 +1,4 @@
-/**
+﻿/**
  * HA Security Check - Security audit tool for Home Assistant
  * Checks for common security issues: exposed ports, SSL, outdated addons, insecure integrations, etc.
  */
@@ -6,6 +6,13 @@ class HASecurityCheck extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
+    // --- Throttle fields ---
+    this._lastRenderTime = 0;
+    this._renderScheduled = false;
+    this._firstHassRender = false;
+    // --- Pagination ---
+    this._currentPage = {};
+    this._pageSize = 15;
     this._hass = null;
     this._config = {};
     this._activeTab = 'overview';
@@ -16,10 +23,30 @@ class HASecurityCheck extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    if (!this.shadowRoot.querySelector('.security-card')) {
-      this._render();
+    if (!hass) return;
+    const now = Date.now();
+    if (!this._firstHassRender) {
+      this._firstHassRender = true;
       this._runAudit();
+      this._render();
+      this._lastRenderTime = now;
+      return;
     }
+    if (now - (this._lastRenderTime || 0) < 5000) {
+      if (!this._renderScheduled) {
+        this._renderScheduled = true;
+        setTimeout(() => {
+          this._renderScheduled = false;
+      this._runAudit();
+          this._render();
+          this._lastRenderTime = Date.now();
+        }, 5000 - (now - (this._lastRenderTime || 0)));
+      }
+      return;
+    }
+      this._runAudit();
+    this._render();
+    this._lastRenderTime = now;
   }
 
   setConfig(config) {
@@ -195,6 +222,215 @@ class HASecurityCheck extends HTMLElement {
   _render() {
     this.shadowRoot.innerHTML = `
       <style>
+/* ===== BENTO LIGHT MODE DESIGN SYSTEM ===== */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:host {
+  --bento-primary: #3B82F6;
+  --bento-primary-hover: #2563EB;
+  --bento-primary-light: rgba(59, 130, 246, 0.08);
+  --bento-success: #10B981;
+  --bento-success-light: rgba(16, 185, 129, 0.08);
+  --bento-error: #EF4444;
+  --bento-error-light: rgba(239, 68, 68, 0.08);
+  --bento-warning: #F59E0B;
+  --bento-warning-light: rgba(245, 158, 11, 0.08);
+  --bento-bg: #F8FAFC;
+  --bento-card: #FFFFFF;
+  --bento-border: #E2E8F0;
+  --bento-text: #1E293B;
+  --bento-text-secondary: #64748B;
+  --bento-text-muted: #94A3B8;
+  --bento-radius-xs: 6px;
+  --bento-radius-sm: 10px;
+  --bento-radius-md: 16px;
+  --bento-shadow-sm: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+  --bento-shadow-md: 0 4px 12px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.04);
+  --bento-shadow-lg: 0 8px 25px rgba(0,0,0,0.06), 0 4px 10px rgba(0,0,0,0.04);
+  --bento-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Card */
+.card, .ha-card, ha-card, .main-card, .exporter-card, .security-card, .reports-card, .storage-card, .chore-card, .cry-card, .backup-card, .network-card, .sentence-card, .energy-card, .panel-card {
+  background: var(--bento-card) !important;
+  border: 1px solid var(--bento-border) !important;
+  border-radius: var(--bento-radius-md) !important;
+  box-shadow: var(--bento-shadow-sm) !important;
+  font-family: 'Inter', sans-serif !important;
+  color: var(--bento-text) !important;
+  overflow: hidden;
+}
+
+/* Headers */
+.card-header, .header, .card-title, h1, h2, h3 {
+  color: var(--bento-text) !important;
+  font-family: 'Inter', sans-serif !important;
+}
+.card-header, .header {
+  border-bottom: 1px solid var(--bento-border) !important;
+  padding-bottom: 12px !important;
+  margin-bottom: 16px !important;
+}
+
+/* Tabs */
+.tabs, .tab-bar, .tab-nav, .tab-header {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid var(--bento-border);
+  padding: 0 4px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+.tab, .tab-btn, .tab-button {
+  padding: 10px 18px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: 'Inter', sans-serif;
+  color: var(--bento-text-secondary);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: var(--bento-transition);
+  white-space: nowrap;
+  border-radius: 0;
+}
+.tab:hover, .tab-btn:hover, .tab-button:hover {
+  color: var(--bento-primary);
+  background: var(--bento-primary-light);
+}
+.tab.active, .tab-btn.active, .tab-button.active {
+  color: var(--bento-primary);
+  border-bottom-color: var(--bento-primary);
+  background: rgba(59, 130, 246, 0.04);
+  font-weight: 600;
+}
+
+/* Tab content */
+.tab-content { display: none; }
+.tab-content.active { display: block; animation: bentoFadeIn 0.3s ease-out; }
+@keyframes bentoFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Buttons */
+button, .btn, .action-btn {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--bento-radius-xs);
+  transition: var(--bento-transition);
+  cursor: pointer;
+}
+button.active, .btn.active, .btn-primary, .action-btn.active {
+  background: var(--bento-primary) !important;
+  color: white !important;
+  border-color: var(--bento-primary) !important;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
+}
+
+/* Status badges */
+.badge, .status-badge, .tag, .chip {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.badge-success, .status-ok, .status-good { background: var(--bento-success-light); color: var(--bento-success); }
+.badge-error, .status-error, .status-critical { background: var(--bento-error-light); color: var(--bento-error); }
+.badge-warning, .status-warning { background: var(--bento-warning-light); color: var(--bento-warning); }
+.badge-info, .status-info { background: var(--bento-primary-light); color: var(--bento-primary); }
+
+/* Tables */
+table { width: 100%; border-collapse: separate; border-spacing: 0; font-family: 'Inter', sans-serif; }
+th { background: var(--bento-bg); color: var(--bento-text-secondary); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 14px; text-align: left; border-bottom: 2px solid var(--bento-border); }
+td { padding: 12px 14px; border-bottom: 1px solid var(--bento-border); color: var(--bento-text); font-size: 13px; }
+tr:hover td { background: var(--bento-primary-light); }
+tr:last-child td { border-bottom: none; }
+
+/* Inputs & selects */
+input, select, textarea {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  padding: 8px 12px;
+  border: 1.5px solid var(--bento-border);
+  border-radius: var(--bento-radius-xs);
+  background: var(--bento-card);
+  color: var(--bento-text);
+  transition: var(--bento-transition);
+  outline: none;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--bento-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Stat cards */
+.stat-card, .stat, .metric-card, .stat-box, .overview-stat, .kpi-card {
+  background: var(--bento-card);
+  border: 1px solid var(--bento-border);
+  border-radius: var(--bento-radius-sm);
+  padding: 16px;
+  transition: var(--bento-transition);
+}
+.stat-card:hover, .stat:hover, .metric-card:hover { box-shadow: var(--bento-shadow-md); transform: translateY(-1px); }
+.stat-value, .metric-value, .stat-number { font-size: 28px; font-weight: 700; color: var(--bento-text); font-family: 'Inter', sans-serif; }
+.stat-label, .metric-label, .stat-title { font-size: 12px; font-weight: 500; color: var(--bento-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* Canvas override (prevent Bento CSS from distorting charts) */
+canvas {
+  max-width: 100% !important;
+  height: auto !important;
+  width: auto !important;
+  border: none !important;
+}
+
+/* Pagination */
+.pagination, .pag {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+  padding: 16px 0;
+  border-top: 1px solid var(--bento-border);
+}
+.pagination-btn, .pag-btn {
+  padding: 8px 14px;
+  border: 1.5px solid var(--bento-border);
+  background: var(--bento-card);
+  color: var(--bento-text);
+  border-radius: var(--bento-radius-xs);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: 'Inter', sans-serif;
+  transition: var(--bento-transition);
+}
+.pagination-btn:hover:not(:disabled), .pag-btn:hover:not(:disabled) { background: var(--bento-primary); color: white; border-color: var(--bento-primary); }
+.pagination-btn:disabled, .pag-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.pagination-info, .pag-info { font-size: 13px; color: var(--bento-text-secondary); font-weight: 500; padding: 0 8px; }
+.page-size-select { padding: 6px 10px; border: 1.5px solid var(--bento-border); border-radius: var(--bento-radius-xs); font-size: 12px; font-family: 'Inter', sans-serif; }
+
+/* Empty state */
+.empty-state, .no-data, .no-results {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--bento-text-secondary);
+  font-size: 14px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bento-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--bento-text-muted); }
+
+/* ===== END BENTO LIGHT MODE ===== */
+
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -484,6 +720,46 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
   .column { min-width: unset; }
 }
 
+
+/* ===== SECURITY CHECK SPECIFIC ===== */
+.score-section { display: flex; align-items: center; gap: 24px; margin-bottom: 20px; padding: 16px; background: var(--bento-bg); border-radius: var(--bento-radius-sm); border: 1px solid var(--bento-border); }
+.score-ring { position: relative; width: 120px; height: 120px; flex-shrink: 0; }
+.score-ring svg { width: 120px; height: 120px; transform: rotate(-90deg); }
+.score-bg { fill: none; stroke: var(--bento-border); stroke-width: 8; }
+.score-fill { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dasharray 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+.score-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+.score-num { font-size: 28px; font-weight: 700; font-family: 'Inter', sans-serif; line-height: 1.2; }
+.score-label { font-size: 11px; color: var(--bento-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+.score-summary { flex: 1; }
+.score-summary h3 { margin: 0 0 12px 0; font-size: 15px; font-weight: 600; }
+.summary-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; color: var(--bento-text-secondary); }
+.summary-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.summary-count { font-weight: 700; color: var(--bento-text); min-width: 20px; }
+.finding { padding: 14px 16px; border-radius: var(--bento-radius-sm); border: 1px solid var(--bento-border); margin-bottom: 8px; background: var(--bento-card); transition: var(--bento-transition); }
+.finding:hover { box-shadow: var(--bento-shadow-sm); }
+.finding.critical { border-left: 3px solid #f44336; }
+.finding.warning { border-left: 3px solid #ff9800; }
+.finding.info { border-left: 3px solid #03a9f4; }
+.finding.pass { border-left: 3px solid #4caf50; }
+.finding-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.finding-icon { font-size: 16px; }
+.finding-title { font-weight: 600; font-size: 13px; color: var(--bento-text); flex: 1; }
+.finding-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.3px; }
+.badge-critical { background: rgba(244, 67, 54, 0.1); color: #f44336; }
+.badge-warning { background: rgba(255, 152, 0, 0.1); color: #ff9800; }
+.badge-info { background: rgba(3, 169, 244, 0.1); color: #03a9f4; }
+.badge-pass { background: rgba(76, 175, 80, 0.1); color: #4caf50; }
+.finding-desc { font-size: 12px; color: var(--bento-text-secondary); line-height: 1.5; }
+.finding-fix { font-size: 12px; color: var(--bento-primary); margin-top: 6px; font-weight: 500; }
+.section-title { font-size: 14px; font-weight: 600; color: var(--bento-text); margin: 16px 0 8px 0; padding-bottom: 6px; border-bottom: 1px solid var(--bento-border); }
+.section-title:first-child { margin-top: 0; }
+.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.scan-info { font-size: 12px; color: var(--bento-text-muted); text-align: right; margin-top: 12px; font-style: italic; }
+.tip-box { padding: 14px 16px; background: var(--bento-bg); border-radius: var(--bento-radius-sm); border: 1px solid var(--bento-border); font-size: 13px; color: var(--bento-text-secondary); line-height: 1.6; }
+.tip-box strong { color: var(--bento-text); }
+.empty-msg { text-align: center; padding: 32px; color: var(--bento-text-secondary); font-size: 14px; }
+.table-container { overflow-x: auto; margin-bottom: 16px; }
+
 </style>
       <ha-card>
         <div class="security-card">
@@ -537,7 +813,7 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
     const grade = sc >= 90 ? 'A' : sc >= 80 ? 'B' : sc >= 70 ? 'C' : sc >= 60 ? 'D' : 'F';
     const gradeMsg = sc >= 90 ? 'Excellent security posture' : sc >= 80 ? 'Good, minor improvements possible' : sc >= 60 ? 'Fair, several issues to address' : 'Needs attention \u2014 critical issues found';
     let html = `<div class="score-section"><div class="score-ring"><svg viewBox="0 0 100 100"><circle class="score-bg" cx="50" cy="50" r="42" /><circle class="score-fill" cx="50" cy="50" r="42" style="stroke:${scoreColor};stroke-dasharray:${(sc/100)*circ} ${circ}" /></svg><div class="score-text"><div class="score-num" style="color:${scoreColor}">${sc}</div><div class="score-label">Score</div></div></div><div class="score-summary"><h3>Grade: ${grade} \u2014 ${gradeMsg}</h3><div class="summary-row"><div class="summary-dot" style="background:#f44336"></div><span class="summary-count">${d.critCount}</span> Critical</div><div class="summary-row"><div class="summary-dot" style="background:#ff9800"></div><span class="summary-count">${d.warnCount}</span> Warnings</div><div class="summary-row"><div class="summary-dot" style="background:#03a9f4"></div><span class="summary-count">${d.infoCount}</span> Info</div><div class="summary-row"><div class="summary-dot" style="background:#4caf50"></div><span class="summary-count">${d.passCount}</span> Passed</div></div></div>`;
-    html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:16px"><div style="padding:10px;background:var(--hover);border-radius:8px;text-align:center"><div style="font-size:20px;font-weight:700">${d.addons.length}</div><div style="font-size:11px;color:var(--ts)">Addons installed</div></div><div style="padding:10px;background:var(--hover);border-radius:8px;text-align:center"><div style="font-size:20px;font-weight:700">${d.users.length}</div><div style="font-size:11px;color:var(--ts)">User accounts</div></div><div style="padding:10px;background:var(--hover);border-radius:8px;text-align:center"><div style="font-size:20px;font-weight:700">${d.entities}</div><div style="font-size:11px;color:var(--ts)">Entities</div></div><div style="padding:10px;background:var(--hover);border-radius:8px;text-align:center"><div style="font-size:20px;font-weight:700">${d.totalChecks}</div><div style="font-size:11px;color:var(--ts)">Checks run</div></div></div>`;
+    html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:16px"><div style="padding:10px;background:var(--bento-bg);border-radius:8px;text-align:center"><div style="font-size:20px;font-weight:700">${d.addons.length}</div><div style="font-size:11px;color:var(--bento-text-secondary)">Addons installed</div></div><div style="padding:10px;background:var(--bento-bg);border-radius:8px;text-align:center"><div style="font-size:20px;font-weight:700">${d.users.length}</div><div style="font-size:11px;color:var(--bento-text-secondary)">User accounts</div></div><div style="padding:10px;background:var(--bento-bg);border-radius:8px;text-align:center"><div style="font-size:20px;font-weight:700">${d.entities}</div><div style="font-size:11px;color:var(--bento-text-secondary)">Entities</div></div><div style="padding:10px;background:var(--bento-bg);border-radius:8px;text-align:center"><div style="font-size:20px;font-weight:700">${d.totalChecks}</div><div style="font-size:11px;color:var(--bento-text-secondary)">Checks run</div></div></div>`;
     if (d.critCount > 0) { html += '<div class="section-title">\u{1F6A8} Critical Issues</div>'; d.findings.critical.forEach(f => { html += this._renderFinding(f, 'critical'); }); }
     if (d.warnCount > 0) { html += '<div class="section-title">\u26A0\uFE0F Warnings</div>'; d.findings.warning.forEach(f => { html += this._renderFinding(f, 'warning'); }); }
     if (this._lastScan) { html += `<div class="scan-info">Last scan: ${this._lastScan.toLocaleString()}</div>`; }
@@ -562,7 +838,7 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
 
   _renderAddons(d) {
     if (!d.addons.length) return '<div class="empty-msg">No addons installed</div>';
-    return `<div class="table-container"><table class="entity-table"><thead><tr><th>Addon</th><th>Version</th><th>State</th><th>Protection</th><th>Auto-update</th><th>Host Network</th></tr></thead><tbody>${d.addons.map(a => { const prot = a.protected !== false; const autoUp = a.auto_update !== false; const hostNet = a.host_network === true; const updateAvail = a.update_available; return `<tr><td>${a.name || a.slug}${updateAvail ? ' \u2B06\uFE0F' : ''}</td><td>${a.version || '-'}${updateAvail ? ` \u2192 ${a.version_latest}` : ''}</td><td><span class="status-dot" style="background:${a.state === 'started' ? '#4caf50' : '#9e9e9e'}"></span>${a.state || 'stopped'}</td><td style="color:${prot ? '#4caf50' : '#f44336'}">${prot ? '\u2713 On' : '\u2717 Off'}</td><td style="color:${autoUp ? '#4caf50' : '#ff9800'}">${autoUp ? '\u2713 On' : '\u2717 Off'}</td><td style="color:${hostNet ? '#ff9800' : 'var(--ts)'}">${hostNet ? '\u26A0 Yes' : 'No'}</td></tr>`; }).join('')}</tbody></table></div>`;
+    return `<div class="table-container"><table class="entity-table"><thead><tr><th>Addon</th><th>Version</th><th>State</th><th>Protection</th><th>Auto-update</th><th>Host Network</th></tr></thead><tbody>${d.addons.map(a => { const prot = a.protected !== false; const autoUp = a.auto_update !== false; const hostNet = a.host_network === true; const updateAvail = a.update_available; return `<tr><td>${a.name || a.slug}${updateAvail ? ' \u2B06\uFE0F' : ''}</td><td>${a.version || '-'}${updateAvail ? ` \u2192 ${a.version_latest}` : ''}</td><td><span class="status-dot" style="background:${a.state === 'started' ? '#4caf50' : '#9e9e9e'}"></span>${a.state || 'stopped'}</td><td style="color:${prot ? '#4caf50' : '#f44336'}">${prot ? '\u2713 On' : '\u2717 Off'}</td><td style="color:${autoUp ? '#4caf50' : '#ff9800'}">${autoUp ? '\u2713 On' : '\u2717 Off'}</td><td style="color:${hostNet ? '#ff9800' : 'var(--bento-text-secondary)'}">${hostNet ? '\u26A0 Yes' : 'No'}</td></tr>`; }).join('')}</tbody></table></div>`;
   }
 
   _renderUsers(d) {
@@ -580,6 +856,52 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
       <div class="tip-box" style="margin-top:8px"><strong>\u{1F9E9} Addon Hygiene</strong><br>Remove unused addons. Keep protection mode enabled unless absolutely needed. Review addon permissions (host network, privileged mode) periodically.</div>
       <div class="tip-box" style="margin-top:8px"><strong>\u{1F4E1} IoT Network</strong><br>Isolate IoT devices on a separate VLAN/subnet. Use firewall rules to prevent IoT devices from reaching the internet directly. This limits the blast radius of compromised devices.</div>
     `;
+  }
+
+// --- Pagination helper ---
+  _renderPagination(tabName, totalItems) {
+    if (!this._currentPage[tabName]) this._currentPage[tabName] = 1;
+    const pageSize = this._pageSize;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const page = Math.min(this._currentPage[tabName], totalPages);
+    this._currentPage[tabName] = page;
+    return `
+      <div class="pagination">
+        <button class="pagination-btn" data-page-tab="${tabName}" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>&#8249; Prev</button>
+        <span class="pagination-info">${page} / ${totalPages} (${totalItems})</span>
+        <button class="pagination-btn" data-page-tab="${tabName}" data-page="${page + 1}" ${page >= totalPages ? 'disabled' : ''}>Next &#8250;</button>
+        <select class="page-size-select" data-page-tab="${tabName}" data-action="page-size">
+          ${[10,15,25,50].map(s => `<option value="${s}" ${s === pageSize ? 'selected' : ''}>${s}/page</option>`).join('')}
+        </select>
+      </div>`;
+  }
+
+  _paginateItems(items, tabName) {
+    if (!this._currentPage[tabName]) this._currentPage[tabName] = 1;
+    const start = (this._currentPage[tabName] - 1) * this._pageSize;
+    return items.slice(start, start + this._pageSize);
+  }
+
+  _setupPaginationListeners() {
+    if (!this.shadowRoot) return;
+    this.shadowRoot.querySelectorAll('.pagination-btn:not([disabled])').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const tab = e.target.dataset.pageTab;
+        const page = parseInt(e.target.dataset.page);
+        if (tab && page > 0) {
+          this._currentPage[tab] = page;
+          this._render ? this._render() : (this.render ? this.render() : this.renderCard());
+        }
+      });
+    });
+    this.shadowRoot.querySelectorAll('.page-size-select').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        this._pageSize = parseInt(e.target.value);
+        // Reset all pages to 1
+        Object.keys(this._currentPage).forEach(k => this._currentPage[k] = 1);
+        this._render ? this._render() : (this.render ? this.render() : this.renderCard());
+      });
+    });
   }
 }
 
