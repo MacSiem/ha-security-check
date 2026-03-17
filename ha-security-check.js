@@ -378,6 +378,56 @@ class HASecurityCheck extends HTMLElement {
         }
       } catch(e) {}
 
+      // NEW CHECK: MQTT anonymous access
+      try {
+        const mqttAddonRunning = installedAddons.find(a => (a.slug || '').includes('mosquitto') && a.state === 'started');
+        if (mqttAddonRunning) {
+          try {
+            const mqttConfig = await this._hass.callWS({ type: 'supervisor/api', endpoint: `/addons/${mqttAddonRunning.slug}/options`, method: 'get' });
+            const opts = mqttConfig?.data?.options || {};
+            if (opts.anonymous === true) {
+              findings.critical.push({ id: 'mqtt_anonymous', title: 'MQTT allows anonymous connections', desc: 'Anyone on the network can connect to your MQTT broker without authentication', fix: 'Disable anonymous access in Mosquitto addon configuration and set up proper user credentials' });
+            } else {
+              findings.pass.push({ id: 'mqtt_anonymous', title: 'MQTT requires authentication', desc: 'Anonymous connections are disabled' });
+            }
+          } catch(e2) {
+            findings.info.push({ id: 'mqtt_config', title: 'Could not verify MQTT configuration', desc: 'Unable to read Mosquitto addon settings', fix: 'Manually verify MQTT authentication settings' });
+          }
+        }
+      } catch(e) {}
+
+      // NEW CHECK: Dangerous template sensors
+      try {
+        const templateEntities = allEntities.filter(e => e.includes('template') || e.includes('command_line'));
+        if (templateEntities.length > 10) {
+          findings.info.push({ id: 'template_sensors', title: `${templateEntities.length} template/command_line entities`, desc: 'Large number of template entities may indicate complex configs that need review', fix: 'Periodically review template sensors for security implications' });
+        }
+      } catch(e) {}
+
+      // NEW CHECK: HTTP configuration (CORS)
+      try {
+        const httpConfig = this._hass.config;
+        if (httpConfig?.components?.includes('cors') || httpConfig?.allowlist_external_urls?.length > 0) {
+          findings.info.push({ id: 'cors_config', title: 'CORS or external URL allowlist configured', desc: 'Cross-origin requests or external URLs are permitted', fix: 'Review allowed origins and URLs to ensure they are trusted' });
+        }
+      } catch(e) {}
+
+      // NEW CHECK: Port 8123 direct exposure
+      try {
+        const externalUrl = this._hass.config?.external_url || '';
+        if (externalUrl && externalUrl.includes(':8123')) {
+          findings.warning.push({ id: 'port_exposure', title: 'Default port 8123 exposed externally', desc: `External URL uses default HA port: ${externalUrl}`, fix: 'Use a reverse proxy (NGINX, Caddy) or Nabu Casa instead of direct port forwarding. Change default port if exposing directly.' });
+        }
+      } catch(e) {}
+
+      // NEW CHECK: Person tracking entities
+      try {
+        const personEntities = allEntities.filter(e => e.startsWith('person.'));
+        if (personEntities.length > 0) {
+          findings.info.push({ id: 'person_tracking', title: `${personEntities.length} person(s) tracked`, desc: 'Location data is sensitive PII', fix: 'Ensure only trusted users have access to person entities. Review recorder include/exclude.' });
+        }
+      } catch(e) {}
+
       const critCount = findings.critical.length;
       const warnCount = findings.warning.length;
       const passCount = findings.pass.length;
