@@ -1,4 +1,4 @@
-/**
+﻿/**
  * HA Security Check - Security audit tool for Home Assistant
  * Checks for common security issues: exposed ports, SSL, outdated addons, insecure integrations, etc.
  */
@@ -196,197 +196,15 @@ class HASecurityCheck extends HTMLElement {
         findings.warning.push({ id: 'risky_services', title: 'Potentially risky network services', desc: riskyAddons.map(a => `${a.name} (${a.state || 'stopped'})`).join(', '), fix: 'Ensure file sharing services are properly secured and only accessible on local network' });
       }
 
-      // NEW CHECK: HACS custom repositories
-      try {
-        const hacsSensor = states['sensor.hacs'];
-        if (hacsSensor) {
-          const customRepos = hacsSensor.attributes?.custom_repositories || [];
-          if (customRepos.length > 0) {
-            findings.info.push({ id: 'hacs_custom_repos', title: `${customRepos.length} custom HACS repository(ies) installed`, desc: customRepos.slice(0, 3).map(r => r.repository || r).join(', ') + (customRepos.length > 3 ? '...' : ''), fix: 'Review custom repositories for trust and source quality' });
-          }
-        }
-      } catch(e) {}
-
-      // NEW CHECK: Trusted networks / Auth providers
-      try {
-        const authProviders = this._hass.config?.auth_providers || [];
-        const hasTrustedNetworks = authProviders.some(ap => ap.type === 'trusted_networks');
-        if (hasTrustedNetworks) {
-          findings.warning.push({ id: 'trusted_networks', title: 'Trusted networks auth provider enabled', desc: 'This reduces security by allowing local network access without authentication', fix: 'Disable trusted_networks or use only on fully isolated private networks' });
-        }
-        const hasLegacyApiPassword = authProviders.some(ap => ap.type === 'legacy_api_password');
-        if (hasLegacyApiPassword) {
-          findings.critical.push({ id: 'legacy_api_password', title: 'Legacy API password enabled', desc: 'Legacy API passwords are deprecated and less secure than long-lived access tokens', fix: 'Remove api_password from configuration.yaml and use long-lived access tokens instead' });
-        }
-      } catch(e) {}
-
-      // NEW CHECK: IP bans
-      try {
-        const banData = await this._hass.callApi('GET', 'config/ip_ban');
-        if (banData?.banned_ips && banData.banned_ips.length > 0) {
-          findings.info.push({ id: 'ip_bans', title: `${banData.banned_ips.length} IP(s) are banned`, desc: 'Failed login attempts have resulted in IP bans', fix: 'Review failed login attempts in the System Log' });
-        }
-      } catch(e) {}
-
-      // NEW CHECK: HTTP configuration
-      try {
-        const httpConfig = this._hass.config;
-        if (httpConfig) {
-          if (httpConfig.login_attempts_threshold === 0 || !httpConfig.hasOwnProperty('login_attempts_threshold')) {
-            findings.warning.push({ id: 'login_attempts', title: 'Login attempt threshold not configured', desc: 'IP ban after failed logins may be disabled', fix: 'Set login_attempts_threshold in configuration.yaml (default: 5)' });
-          }
-          if (httpConfig.ip_ban_enabled === false) {
-            findings.warning.push({ id: 'ip_ban_disabled', title: 'IP banning is disabled', desc: 'Failed login attempts will not result in IP bans', fix: 'Enable ip_ban_enabled in configuration.yaml' });
-          }
-          if (httpConfig.use_x_forwarded_for === true && !httpConfig.trusted_proxies) {
-            findings.warning.push({ id: 'x_forwarded_for_unprotected', title: 'X-Forwarded-For enabled without trusted proxies', desc: 'This can allow IP spoofing if not behind a trusted proxy', fix: 'Either set trusted_proxies or disable use_x_forwarded_for' });
-          }
-        }
-      } catch(e) {}
-
-      // NEW CHECK: Privileged addons
-      try {
-        const privilegedAddons = installedAddons.filter(a => a.privileged === true);
-        if (privilegedAddons.length > 0) {
-          findings.warning.push({ id: 'privileged_addons', title: `${privilegedAddons.length} addon(s) with privileged access`, desc: privilegedAddons.map(a => a.name).join(', '), fix: 'Privileged addons have root-level access. Verify they are trustworthy and necessary.' });
-        }
-      } catch(e) {}
-
-      // NEW CHECK: Exposed addon ports
-      try {
-        const exposedAddons = installedAddons.filter(a => {
-          const hasPorts = a.ports && Object.keys(a.ports).length > 0;
-          const hasNetwork = a.network && Object.keys(a.network).length > 0;
-          return hasPorts || hasNetwork;
-        });
-        if (exposedAddons.length > 0) {
-          const portList = exposedAddons.map(a => {
-            const ports = a.ports ? Object.keys(a.ports).join(',') : '';
-            return `${a.name}${ports ? `:${ports}` : ''}`;
-          }).join('; ');
-          findings.info.push({ id: 'exposed_addon_ports', title: `${exposedAddons.length} addon(s) expose port(s)`, desc: portList, fix: 'Ensure exposed ports are not accessible from the internet. Use firewall rules if needed.' });
-        }
-      } catch(e) {}
-
-      // NEW CHECK: Ingress vs exposed addons
-      try {
-        const nonIngressAddons = installedAddons.filter(a => a.ingress !== true && a.ports && Object.keys(a.ports).length > 0);
-        if (nonIngressAddons.length > 0) {
-          findings.info.push({ id: 'non_ingress_addons', title: `${nonIngressAddons.length} addon(s) not using Ingress`, desc: nonIngressAddons.map(a => a.name).join(', '), fix: 'Consider using Ingress for safer addon access (only through HA UI)' });
-        }
-      } catch(e) {}
-
-      // NEW CHECK: Webhooks
-      try {
-        const webhookEntities = allEntities.filter(e => e.startsWith('automation.') || e.startsWith('script.'));
-        let webhookCount = 0;
-        webhookEntities.forEach(e => {
-          const state = states[e];
-          if (state?.attributes?.description?.includes('webhook') || state?.attributes?.trigger?.includes('webhook')) {
-            webhookCount++;
-          }
-        });
-        if (webhookCount > 0) {
-          findings.info.push({ id: 'webhooks', title: `${webhookCount} automation(s)/script(s) with webhook(s)`, desc: 'Webhooks expose endpoints that can be triggered from the internet', fix: 'Ensure webhook URLs are not shared publicly. Use strong secrets in webhook URLs.' });
-        }
-      } catch(e) {}
-
-      // NEW CHECK: Long-lived access tokens
-      try {
-        const tokenCount = users.filter(u => u.refresh_tokens && u.refresh_tokens.length > 0).length;
-        if (tokenCount > 0) {
-          findings.info.push({ id: 'access_tokens', title: `${tokenCount} user(s) with long-lived access token(s)`, desc: 'Access tokens should be rotated regularly and kept secure', fix: 'Rotate tokens periodically. Remove unused tokens from Settings \u2192 Users' });
-        }
-      } catch(e) {}
-
-      // NEW CHECK: Camera entities
-      try {
-        const cameraEntities = allEntities.filter(e => e.startsWith('camera.'));
-        if (cameraEntities.length > 0) {
-          findings.info.push({ id: 'camera_count', title: `${cameraEntities.length} camera(s) configured`, desc: 'Camera streams should not be exposed directly to the internet', fix: 'Use Secure (SSL/TLS) connection. Do not expose camera ports directly. Use Nabu Casa or tunnel.' });
-        }
-      } catch(e) {}
-
-      // NEW CHECK: Media source / proxy exposure
-      try {
-        const mediaEntities = allEntities.filter(e => e.startsWith('media_player.'));
-        if (mediaEntities.length > 0) {
-          findings.info.push({ id: 'media_exposure', title: `${mediaEntities.length} media player(s) configured`, desc: 'Ensure media sources are not serving public content', fix: 'Use local media libraries. Do not expose media over the internet unless necessary.' });
-        }
-      } catch(e) {}
-
-      // NEW CHECK: Recorder / history purge settings
-      try {
-        const recorderEntities = allEntities.filter(e => e.startsWith('recorder.'));
-        if (recorderEntities.length > 0) {
-          const recorderState = states['automation.'] || states['script.'];
-          const purgeKeepDays = this._hass.config?.components?.recorder?.purge_keep_days;
-          if (purgeKeepDays && purgeKeepDays > 30) {
-            findings.info.push({ id: 'recorder_retention', title: `Recorder keeping data for ${purgeKeepDays} days`, desc: 'Long retention can be a privacy concern if you have guests or visitors', fix: 'Consider reducing purge_keep_days in configuration.yaml if privacy is a concern' });
-          }
-        }
-      } catch(e) {}
-
-      // NEW CHECK: Supervisor security (debug mode)
-      try {
-        if (supervisorInfo?.debug === true) {
-          findings.warning.push({ id: 'supervisor_debug', title: 'Supervisor debug mode is enabled', desc: 'Debug mode exposes additional logs and may reduce security', fix: 'Disable debug mode in Supervisor settings unless troubleshooting' });
-        }
-        if (supervisorInfo?.debug_block === true) {
-          findings.info.push({ id: 'supervisor_debug_block', title: 'Supervisor debug block is enabled', desc: 'This is a development/testing feature', fix: 'Ensure this is intentional and not left enabled in production' });
-        }
-      } catch(e) {}
-
-      // NEW CHECK: HACS addon integrity
-      try {
-        const hacsAddon = installedAddons.find(a => a.slug === 'hacs');
-        if (hacsAddon) {
-          if (hacsAddon.update_available) {
-            findings.warning.push({ id: 'hacs_update', title: 'HACS addon has an update available', desc: `Current: ${hacsAddon.version} \u2192 Latest: ${hacsAddon.version_latest}`, fix: 'Update HACS addon from Settings \u2192 Add-ons' });
-          } else {
-            findings.pass.push({ id: 'hacs_update', title: 'HACS addon is up to date', desc: `Version: ${hacsAddon.version}` });
-          }
-        }
-      } catch(e) {}
-
-      // NEW CHECK: Bluetooth / USB exposure in addons
-      try {
-        const btUsbAddons = installedAddons.filter(a => {
-          const config = a.devices || [];
-          return config.some(d => d && (d.includes('bluetooth') || d.includes('usb') || d.includes('/dev/bus/usb')));
-        });
-        if (btUsbAddons.length > 0) {
-          findings.info.push({ id: 'bt_usb_addons', title: `${btUsbAddons.length} addon(s) with Bluetooth/USB access`, desc: btUsbAddons.map(a => a.name).join(', '), fix: 'Verify that these addons are trustworthy. USB/Bluetooth access provides direct hardware access.' });
-        }
-      } catch(e) {}
-
-      // NEW CHECK: Firewall / Network isolation
-      try {
-        if (hostInfo?.chassis && hostInfo.chassis !== 'embedded') {
-          findings.warning.push({ id: 'non_haos', title: 'Running on non-HAOS system', desc: `Detected chassis: ${hostInfo.chassis}. Missing Supervisor network isolation.`, fix: 'Use Home Assistant OS for built-in network security features. Manual firewall configuration required on generic Linux.' });
-        }
-      } catch(e) {}
-
-      // NEW CHECK: Backup encryption
-      try {
-        const backups = await this._hass.callWS({ type: 'supervisor/api', endpoint: '/backups', method: 'get' });
-        if (backups?.data?.backups && backups.data.backups.length > 0) {
-          const unencryptedBackups = backups.data.backups.filter(b => b.protected === false);
-          if (unencryptedBackups.length > 0) {
-            findings.warning.push({ id: 'unencrypted_backups', title: `${unencryptedBackups.length} backup(s) without encryption`, desc: 'Unencrypted backups expose sensitive data', fix: 'Create new backups with a password. Set a backup password in Settings \u2192 System \u2192 Backups' });
-          }
-        }
-      } catch(e) {}
-
       const critCount = findings.critical.length;
       const warnCount = findings.warning.length;
       const passCount = findings.pass.length;
       const infoCount = findings.info.length;
       const totalChecks = critCount + warnCount + passCount + infoCount;
       let score = 100;
-      score -= critCount * 15;
-      score -= warnCount * 5;
-      score -= infoCount * 0.5;
+      score -= critCount * 20;
+      score -= warnCount * 8;
+      score -= infoCount * 1;
       score = Math.max(0, Math.min(100, score));
 
       this._auditData = { findings, score, critCount, warnCount, passCount, infoCount, totalChecks, users, addons: installedAddons, entities: allEntities.length };
@@ -902,6 +720,7 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
   .column { min-width: unset; }
 }
 
+
 /* ===== SECURITY CHECK SPECIFIC ===== */
 .score-section { display: flex; align-items: center; gap: 24px; margin-bottom: 20px; padding: 16px; background: var(--bento-bg); border-radius: var(--bento-radius-sm); border: 1px solid var(--bento-border); }
 .score-ring { position: relative; width: 120px; height: 120px; flex-shrink: 0; }
@@ -916,7 +735,6 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
 .summary-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; color: var(--bento-text-secondary); }
 .summary-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 .summary-count { font-weight: 700; color: var(--bento-text); min-width: 20px; }
-
 .finding { padding: 14px 16px; border-radius: var(--bento-radius-sm); border: 1px solid var(--bento-border); margin-bottom: 8px; background: var(--bento-card); transition: var(--bento-transition); }
 .finding:hover { box-shadow: var(--bento-shadow-sm); }
 .finding.critical { border-left: 3px solid #f44336; }
@@ -933,19 +751,13 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
 .badge-pass { background: rgba(76, 175, 80, 0.1); color: #4caf50; }
 .finding-desc { font-size: 12px; color: var(--bento-text-secondary); line-height: 1.5; }
 .finding-fix { font-size: 12px; color: var(--bento-primary); margin-top: 6px; font-weight: 500; }
-
 .section-title { font-size: 14px; font-weight: 600; color: var(--bento-text); margin: 16px 0 8px 0; padding-bottom: 6px; border-bottom: 1px solid var(--bento-border); }
 .section-title:first-child { margin-top: 0; }
-
 .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
-
 .scan-info { font-size: 12px; color: var(--bento-text-muted); text-align: right; margin-top: 12px; font-style: italic; }
-
 .tip-box { padding: 14px 16px; background: var(--bento-bg); border-radius: var(--bento-radius-sm); border: 1px solid var(--bento-border); font-size: 13px; color: var(--bento-text-secondary); line-height: 1.6; }
 .tip-box strong { color: var(--bento-text); }
-
 .empty-msg { text-align: center; padding: 32px; color: var(--bento-text-secondary); font-size: 14px; }
-
 .table-container { overflow-x: auto; margin-bottom: 16px; }
 
 </style>
@@ -959,7 +771,6 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
             <button class="tab-button active" data-tab="overview">Overview</button>
             <button class="tab-button" data-tab="critical">Critical & Warnings</button>
             <button class="tab-button" data-tab="addons">Addons</button>
-            <button class="tab-button" data-tab="network">Network</button>
             <button class="tab-button" data-tab="users">Users</button>
             <button class="tab-button" data-tab="tips">Tips</button>
           </div>
@@ -990,7 +801,6 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
       case 'overview': content.innerHTML = this._renderOverview(d); break;
       case 'critical': content.innerHTML = this._renderFindings(d); break;
       case 'addons': content.innerHTML = this._renderAddons(d); break;
-      case 'network': content.innerHTML = this._renderNetwork(d); break;
       case 'users': content.innerHTML = this._renderUsers(d); break;
       case 'tips': content.innerHTML = this._renderTips(d); break;
     }
@@ -1034,65 +844,6 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
   _renderUsers(d) {
     if (!d.users.length) return '<div class="empty-msg">Could not retrieve user list</div>';
     return `<div class="table-container"><table class="entity-table"><thead><tr><th>User</th><th>Role</th><th>Active</th><th>Local Only</th><th>System</th></tr></thead><tbody>${d.users.map(u => `<tr><td>${u.name || 'Unnamed'}</td><td>${u.is_owner ? '\u{1F451} Owner' : u.group_ids?.includes('system-admin') ? 'Admin' : 'User'}</td><td style="color:${u.is_active !== false ? '#4caf50' : '#9e9e9e'}">${u.is_active !== false ? '\u2713 Active' : 'Inactive'}</td><td>${u.local_only ? '\u2713 Yes' : 'No'}</td><td>${u.system_generated ? '\u{1F916} Yes' : 'No'}</td></tr>`).join('')}</tbody></table></div>`;
-  }
-
-  _renderNetwork(d) {
-    let html = '<div class="section-title">\u{1F3E1} External & Internal URLs</div>';
-
-    const externalUrl = this._hass.config?.external_url || '';
-    const internalUrl = this._hass.config?.internal_url || '';
-
-    html += `<div class="finding ${externalUrl.startsWith('https://') ? 'pass' : externalUrl.startsWith('http://') ? 'critical' : 'info'}">`;
-    if (externalUrl.startsWith('https://')) {
-      html += `<div class="finding-header"><span class="finding-icon">\u2705</span><span class="finding-title">External URL</span><span class="finding-badge badge-pass">Secure</span></div>`;
-    } else if (externalUrl.startsWith('http://')) {
-      html += `<div class="finding-header"><span class="finding-icon">\u{1F6A8}</span><span class="finding-title">External URL</span><span class="finding-badge badge-critical">Insecure</span></div>`;
-    } else {
-      html += `<div class="finding-header"><span class="finding-icon">\u2139\uFE0F</span><span class="finding-title">No External URL</span></div>`;
-    }
-    html += `<div class="finding-desc">${externalUrl || 'Not configured'}</div></div>`;
-
-    html += `<div class="finding ${internalUrl.startsWith('https://') ? 'pass' : 'info'}">`;
-    if (internalUrl.startsWith('https://')) {
-      html += `<div class="finding-header"><span class="finding-icon">\u2705</span><span class="finding-title">Internal URL</span><span class="finding-badge badge-pass">Secure</span></div>`;
-    } else {
-      html += `<div class="finding-header"><span class="finding-icon">\u2139\uFE0F</span><span class="finding-title">Internal URL</span></div>`;
-    }
-    html += `<div class="finding-desc">${internalUrl || 'Not configured (using default http://homeassistant.local:8123)'}</div></div>`;
-
-    html += '<div class="section-title">\u{1F5A5}\uFE0F Exposed Addon Ports</div>';
-    const exposedAddons = d.addons.filter(a => (a.ports && Object.keys(a.ports).length > 0) || (a.network && Object.keys(a.network).length > 0));
-    if (exposedAddons.length === 0) {
-      html += '<div class="empty-msg">No addons exposing ports</div>';
-    } else {
-      html += '<div class="table-container"><table class="entity-table"><thead><tr><th>Addon</th><th>Ingress</th><th>Ports</th><th>State</th></tr></thead><tbody>';
-      exposedAddons.forEach(a => {
-        const hasIngress = a.ingress === true;
-        const ports = a.ports ? Object.entries(a.ports).map(([port, config]) => `${port}${config.host_port ? `→${config.host_port}` : ''}`).join(', ') : 'N/A';
-        const color = hasIngress ? '#4caf50' : a.state === 'started' ? '#ff9800' : '#9e9e9e';
-        html += `<tr><td>${a.name}</td><td style="color:${color}">${hasIngress ? '\u2713 Yes' : '\u2717 No'}</td><td><code style="font-size:12px;background:var(--bento-bg);padding:4px 8px;border-radius:4px">${ports}</code></td><td><span class="status-dot" style="background:${a.state === 'started' ? '#4caf50' : '#9e9e9e'}"></span>${a.state || 'stopped'}</td></tr>`;
-      });
-      html += '</tbody></table></div>';
-    }
-
-    html += '<div class="section-title">\u{1F517} Network-Related Findings</div>';
-    const networkFindings = d.findings.critical.concat(d.findings.warning).concat(d.findings.info).filter(f =>
-      f.id.includes('ssl') || f.id.includes('host_network') || f.id.includes('exposed_addon_ports') ||
-      f.id.includes('ports') || f.id.includes('ingress') || f.id.includes('webhook') ||
-      f.id.includes('proxy') || f.id.includes('trusted') || f.id.includes('ip_ban') ||
-      f.id.includes('camera') || f.id.includes('media') || f.id.includes('risky')
-    );
-
-    if (networkFindings.length === 0) {
-      html += '<div class="empty-msg">No network-related findings</div>';
-    } else {
-      networkFindings.forEach(f => {
-        const severity = d.findings.critical.includes(f) ? 'critical' : d.findings.warning.includes(f) ? 'warning' : 'info';
-        html += this._renderFinding(f, severity);
-      });
-    }
-
-    return html;
   }
 
   _renderTips(d) {
@@ -1154,9 +905,7 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
   }
 }
 
-if (!customElements.get('ha-security-check')) {
-  customElements.define('ha-security-check', HASecurityCheck);
-}
+customElements.define('ha-security-check', HASecurityCheck);
 
 window.customCards = window.customCards || [];
 window.customCards.push({ type: 'ha-security-check', name: 'Security Check', description: 'Security audit tool for Home Assistant', preview: true });
@@ -1166,3 +915,4 @@ console.info(
   'background: #f44336; color: white; font-weight: bold; padding: 2px 6px; border-radius: 4px 0 0 4px;',
   'background: #ffebee; color: #f44336; font-weight: bold; padding: 2px 6px; border-radius: 0 4px 4px 0;'
 );
+
