@@ -21,6 +21,25 @@ class HASecurityCheck extends HTMLElement {
     this._lastScan = null;
   }
 
+  // -- Persistence --
+  _scKey() { return 'ha-security-check-' + (this._config.storage_key || 'default'); }
+  _saveScanData() {
+    try {
+      const data = { lastScan: this._lastScan ? this._lastScan.toISOString() : null, lastScore: this._lastScore || null };
+      localStorage.setItem(this._scKey(), JSON.stringify(data));
+    } catch(e) {}
+  }
+  _loadScanData() {
+    try {
+      const raw = localStorage.getItem(this._scKey());
+      if (raw) {
+        const data = JSON.parse(raw);
+        if (data.lastScan) this._lastScan = new Date(data.lastScan);
+        if (data.lastScore !== undefined) this._lastScore = data.lastScore;
+      }
+    } catch(e) {}
+  }
+
   set hass(hass) {
     this._hass = hass;
     if (!hass) return;
@@ -51,6 +70,7 @@ class HASecurityCheck extends HTMLElement {
 
   setConfig(config) {
     this._config = { title: config.title || 'Security Check', ...config };
+    this._loadScanData();
   }
 
   async _runAudit() {
@@ -441,6 +461,7 @@ class HASecurityCheck extends HTMLElement {
 
       this._auditData = { findings, score, critCount, warnCount, passCount, infoCount, totalChecks, users, addons: installedAddons, entities: allEntities.length };
       this._lastScan = new Date();
+    this._saveScanData();
 
     } catch(e) {
       console.error('[Security Check] Error:', e);
