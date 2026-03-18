@@ -998,6 +998,8 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
 
 .table-container { overflow-x: auto; margin-bottom: 16px; }
 
+.loading { text-align: center; padding: 48px; color: var(--bento-text-secondary); font-size: 14px; }
+
 </style>
       <ha-card>
         <div class="security-card">
