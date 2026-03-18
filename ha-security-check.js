@@ -51,11 +51,14 @@ class HASecurityCheck extends HTMLElement {
       this._lastRenderTime = now;
       return;
     }
-    if (now - (this._lastRenderTime || 0) < 5000) {
+    if (now - (this._lastRenderTime || 0) < 10000) {
       if (!this._renderScheduled) {
         this._renderScheduled = true;
         setTimeout(() => {
           this._renderScheduled = false;
+          const newHash = Object.keys(hass.states).length + '_' + (hass.states['sun.sun'] ? hass.states['sun.sun'].state : '');
+          if (newHash === this._lastStateHash) return;
+          this._lastStateHash = newHash;
       this._runAudit();
           this._render();
           this._lastRenderTime = Date.now();
