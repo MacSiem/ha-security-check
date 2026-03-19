@@ -462,7 +462,14 @@ class HASecurityCheck extends HTMLElement {
       score -= infoCount * 0.5;
       score = Math.max(0, Math.min(100, score));
 
-      this._auditData = { findings, score, critCount, warnCount, passCount, infoCount, totalChecks, users, addons: installedAddons, entities: allEntities.length };
+      // Fetch network interfaces from Supervisor API
+      let networkInfo = null;
+      try {
+        const netResp = await this._hass.callWS({ type: 'supervisor/api', endpoint: '/network/info', method: 'get' });
+        networkInfo = netResp?.data?.interfaces || netResp?.result?.interfaces || [];
+      } catch(ne) { networkInfo = []; }
+
+      this._auditData = { findings, score, critCount, warnCount, passCount, infoCount, totalChecks, users, addons: installedAddons, entities: allEntities.length, networkInterfaces: networkInfo };
       this._lastScan = new Date();
     this._saveScanData();
 
@@ -1033,12 +1040,12 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
             <!-- Refresh handled by panel toolbar -->
           </div>
           <div class="tabs">
-            <button class="tab-button active" data-tab="overview">Overview</button>
-            <button class="tab-button" data-tab="critical">Critical & Warnings</button>
-            <button class="tab-button" data-tab="addons">Addons</button>
-            <button class="tab-button" data-tab="network">Network</button>
-            <button class="tab-button" data-tab="users">Users</button>
-            <button class="tab-button" data-tab="tips">Tips</button>
+            <button class="tab-button ${this._activeTab === 'overview' ? 'active' : ''}" data-tab="overview">Overview</button>
+            <button class="tab-button ${this._activeTab === 'critical' ? 'active' : ''}" data-tab="critical">Critical & Warnings</button>
+            <button class="tab-button ${this._activeTab === 'addons' ? 'active' : ''}" data-tab="addons">Addons</button>
+            <button class="tab-button ${this._activeTab === 'network' ? 'active' : ''}" data-tab="network">Network</button>
+            <button class="tab-button ${this._activeTab === 'users' ? 'active' : ''}" data-tab="users">Users</button>
+            <button class="tab-button ${this._activeTab === 'tips' ? 'active' : ''}" data-tab="tips">Tips</button>
           </div>
           <div id="content"></div>
         </div>
@@ -1156,6 +1163,42 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
     const integrationCount = (haConfig.components || []).length;
     html += `<span style="font-weight:600;color:var(--bento-text-secondary)">Integrations</span><span>${integrationCount} loaded</span>`;
     html += '</div></div></div>';
+
+    // Network Interfaces from Supervisor
+    const ifaces = d.networkInterfaces || [];
+    if (ifaces.length > 0) {
+      html += '<div class="section-title">\u{1F50C} Network Interfaces</div>';
+      ifaces.forEach(iface => {
+        const name = iface.interface || iface.name || 'unknown';
+        const type = iface.type || 'unknown';
+        const enabled = iface.enabled !== false;
+        const ipv4 = iface.ipv4 || {};
+        const addresses = ipv4.address || [];
+        const gateway = ipv4.gateway || 'N/A';
+        const method = ipv4.method || 'auto';
+        const dns = (iface.ipv4?.nameservers || []).join(', ') || 'N/A';
+        const mac = iface.mac || 'N/A';
+        const wifi = iface.wifi || null;
+
+        html += '<div class="finding info" style="margin-bottom:8px">';
+        html += '<div class="finding-header">';
+        html += '<span class="finding-icon">' + (type === 'wireless' ? '\u{1F4F6}' : '\u{1F50C}') + '</span>';
+        html += '<span class="finding-title">' + name + ' (' + type + ')</span>';
+        html += '<span class="finding-badge ' + (enabled ? 'badge-pass' : 'badge-info') + '">' + (enabled ? 'UP' : 'DOWN') + '</span>';
+        html += '</div>';
+        html += '<div class="finding-desc"><div style="display:grid;grid-template-columns:100px 1fr;gap:4px 12px;font-size:12px;">';
+        if (addresses.length > 0) html += '<span style="font-weight:600">IP</span><span>' + addresses.join(', ') + '</span>';
+        html += '<span style="font-weight:600">Gateway</span><span>' + gateway + '</span>';
+        html += '<span style="font-weight:600">DNS</span><span>' + dns + '</span>';
+        html += '<span style="font-weight:600">MAC</span><span><code style="font-size:11px">' + mac + '</code></span>';
+        html += '<span style="font-weight:600">Method</span><span>' + method + '</span>';
+        if (wifi) {
+          html += '<span style="font-weight:600">SSID</span><span>' + (wifi.ssid || 'N/A') + '</span>';
+          html += '<span style="font-weight:600">Signal</span><span>' + (wifi.signal ? wifi.signal + '%' : 'N/A') + '</span>';
+        }
+        html += '</div></div></div>';
+      });
+    }
 
     html += '<div class="section-title">\u{1F5A5}\uFE0F Exposed Addon Ports</div>';
     const exposedAddons = d.addons.filter(a => (a.ports && Object.keys(a.ports).length > 0) || (a.network && Object.keys(a.network).length > 0));
