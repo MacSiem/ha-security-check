@@ -529,6 +529,25 @@ class HASecurityCheck extends HTMLElement {
   --bento-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
+@media (prefers-color-scheme: dark) {
+  :host {
+    --bento-bg: #1a1a2e;
+    --bento-card: #16213e;
+    --bento-text: #e2e8f0;
+    --bento-text-secondary: #94a3b8;
+    --bento-border: #334155;
+    --bento-success: #34d399;
+    --bento-warning: #fbbf24;
+    --bento-error: #f87171;
+  }
+}
+:host-context([data-themes]) {
+  --bento-bg: var(--lovelace-background, var(--primary-background-color, #F8FAFC));
+  --bento-card: var(--card-background-color, var(--ha-card-background, #FFFFFF));
+  --bento-text: var(--primary-text-color, #1E293B);
+  --bento-text-secondary: var(--secondary-text-color, #64748B);
+  --bento-border: var(--divider-color, #E2E8F0);
+}
 
 /* Card */
 .card, .ha-card, ha-card, .main-card, .exporter-card, .security-card, .reports-card, .storage-card, .chore-card, .cry-card, .backup-card, .network-card, .sentence-card, .energy-card, .panel-card {
@@ -732,7 +751,7 @@ canvas {
   --bento-shadow-md: 0 4px 12px rgba(0,0,0,0.06);
   --bento-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   display: block;
-  color-scheme: light !important;
+  color-scheme: light dark;
 }
 * { box-sizing: border-box; }
 
