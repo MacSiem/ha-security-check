@@ -516,6 +516,7 @@ class HASecurityCheck extends HTMLElement {
   font-family: 'Inter', sans-serif !important;
   color: var(--bento-text) !important;
   overflow: hidden;
+  padding: 20px !important;
 }
 
 /* Headers */
@@ -1029,7 +1030,7 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
         <div class="security-card">
           <div class="card-header">
             <h2>${this._config.title}</h2>
-            <button class="refresh-btn" id="refreshBtn">\u{1F504} Re-scan</button>
+            <!-- Refresh handled by panel toolbar -->
           </div>
           <div class="tabs">
             <button class="tab-button active" data-tab="overview">Overview</button>
@@ -1045,7 +1046,8 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
     `;
 
     this.shadowRoot.querySelectorAll('.tab-button').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         this.shadowRoot.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         this._activeTab = btn.dataset.tab;
@@ -1053,7 +1055,7 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
       });
     });
 
-    this.shadowRoot.getElementById('refreshBtn').addEventListener('click', () => this._runAudit());
+    // Refresh now handled by panel toolbar (removed internal Re-scan button)
   }
 
   _updateContent() {
