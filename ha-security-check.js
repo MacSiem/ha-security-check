@@ -463,13 +463,30 @@ class HASecurityCheck extends HTMLElement {
       score = Math.max(0, Math.min(100, score));
 
       // Fetch network interfaces from Supervisor API
-      let networkInfo = null;
+      let networkInfo = [];
+      let hostInfo = null;
       try {
         const netResp = await this._hass.callWS({ type: 'supervisor/api', endpoint: '/network/info', method: 'get' });
-        networkInfo = netResp?.data?.interfaces || netResp?.result?.interfaces || [];
-      } catch(ne) { networkInfo = []; }
+        networkInfo = netResp?.interfaces || netResp?.data?.interfaces || [];
+      } catch(ne) {}
+      if (networkInfo.length === 0) {
+        try {
+          const netWS = await this._hass.callWS({ type: 'network' });
+          if (netWS?.adapters) {
+            networkInfo = netWS.adapters.filter(a => a.enabled).map(a => ({
+              interface: a.name, type: a.name.startsWith('wlan') ? 'wireless' : 'ethernet',
+              enabled: a.enabled, connected: a.enabled, mac: '',
+              ipv4: { address: a.ipv4 ? a.ipv4.map(ip => ip.address + '/' + ip.network_prefix) : [], method: a.auto ? 'auto' : 'manual', gateway: null, nameservers: [] }
+            }));
+          }
+        } catch(ne2) {}
+      }
+      try {
+        const infoResp = await this._hass.callWS({ type: 'supervisor/api', endpoint: '/info', method: 'get' });
+        hostInfo = infoResp || null;
+      } catch(ne3) {}
 
-      this._auditData = { findings, score, critCount, warnCount, passCount, infoCount, totalChecks, users, addons: installedAddons, entities: allEntities.length, networkInterfaces: networkInfo };
+      this._auditData = { findings, score, critCount, warnCount, passCount, infoCount, totalChecks, users, addons: installedAddons, entities: allEntities.length, networkInterfaces: networkInfo, hostInfo: hostInfo };
       this._lastScan = new Date();
     this._saveScanData();
 
@@ -1159,6 +1176,10 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
     html += '<div style="display:grid;grid-template-columns:140px 1fr;gap:6px 12px;font-size:13px;">';
     html += `<span style="font-weight:600;color:var(--bento-text-secondary)">Location name</span><span>${haConfig.location_name || 'N/A'}</span>`;
     html += `<span style="font-weight:600;color:var(--bento-text-secondary)">HA Version</span><span>${haConfig.version || 'N/A'}</span>`;
+    const hi = d.hostInfo || {};
+    if (hi.hostname) html += `<span style="font-weight:600;color:var(--bento-text-secondary)">Hostname</span><span>${hi.hostname}</span>`;
+    if (hi.operating_system) html += `<span style="font-weight:600;color:var(--bento-text-secondary)">OS</span><span>${hi.operating_system}</span>`;
+    if (hi.supervisor) html += `<span style="font-weight:600;color:var(--bento-text-secondary)">Supervisor</span><span>${hi.supervisor}</span>`;
     html += `<span style="font-weight:600;color:var(--bento-text-secondary)">Time zone</span><span>${haConfig.time_zone || 'N/A'}</span>`;
     const integrationCount = (haConfig.components || []).length;
     html += `<span style="font-weight:600;color:var(--bento-text-secondary)">Integrations</span><span>${integrationCount} loaded</span>`;
