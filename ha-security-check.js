@@ -1115,28 +1115,47 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
   }
 
   _renderNetwork(d) {
-    let html = '<div class="section-title">\u{1F3E1} External & Internal URLs</div>';
+    let html = '';
 
+    // Remote Access
+    const hasCloud = (this._hass.config?.components || []).includes('cloud');
+    html += '<div class="section-title">\u{1F310} Remote Access</div>';
+    if (hasCloud) {
+      html += `<div class="finding pass"><div class="finding-header"><span class="finding-icon">\u2705</span><span class="finding-title">Nabu Casa Cloud</span><span class="finding-badge badge-pass">ACTIVE</span></div><div class="finding-desc">Secure remote access via Home Assistant Cloud (Nabu Casa). Encrypted tunnel, no port forwarding needed.</div></div>`;
+    } else {
+      html += `<div class="finding info"><div class="finding-header"><span class="finding-icon">\u2139\uFE0F</span><span class="finding-title">No Cloud Service</span></div><div class="finding-desc">Home Assistant Cloud (Nabu Casa) is not configured. If you need remote access, it's the safest option.</div></div>`;
+    }
+
+    // URLs
+    html += '<div class="section-title">\u{1F3E1} External & Internal URLs</div>';
     const externalUrl = this._hass.config?.external_url || '';
     const internalUrl = this._hass.config?.internal_url || '';
 
     html += `<div class="finding ${externalUrl.startsWith('https://') ? 'pass' : externalUrl.startsWith('http://') ? 'critical' : 'info'}">`;
     if (externalUrl.startsWith('https://')) {
-      html += `<div class="finding-header"><span class="finding-icon">\u2705</span><span class="finding-title">External URL</span><span class="finding-badge badge-pass">Secure</span></div>`;
+      html += `<div class="finding-header"><span class="finding-icon">\u2705</span><span class="finding-title">External URL (HTTPS)</span><span class="finding-badge badge-pass">Secure</span></div>`;
     } else if (externalUrl.startsWith('http://')) {
-      html += `<div class="finding-header"><span class="finding-icon">\u{1F6A8}</span><span class="finding-title">External URL</span><span class="finding-badge badge-critical">Insecure</span></div>`;
+      html += `<div class="finding-header"><span class="finding-icon">\u{1F6A8}</span><span class="finding-title">External URL (HTTP)</span><span class="finding-badge badge-critical">INSECURE</span></div>`;
     } else {
       html += `<div class="finding-header"><span class="finding-icon">\u2139\uFE0F</span><span class="finding-title">No External URL</span></div>`;
     }
     html += `<div class="finding-desc">${externalUrl || 'Not configured'}</div></div>`;
 
     html += `<div class="finding ${internalUrl.startsWith('https://') ? 'pass' : 'info'}">`;
-    if (internalUrl.startsWith('https://')) {
-      html += `<div class="finding-header"><span class="finding-icon">\u2705</span><span class="finding-title">Internal URL</span><span class="finding-badge badge-pass">Secure</span></div>`;
-    } else {
-      html += `<div class="finding-header"><span class="finding-icon">\u2139\uFE0F</span><span class="finding-title">Internal URL</span></div>`;
-    }
-    html += `<div class="finding-desc">${internalUrl || 'Not configured (using default http://homeassistant.local:8123)'}</div></div>`;
+    html += `<div class="finding-header"><span class="finding-icon">\u2139\uFE0F</span><span class="finding-title">Internal URL</span></div>`;
+    html += `<div class="finding-desc">${internalUrl || 'http://homeassistant.local:8123 (default)'}</div></div>`;
+
+    // Network info from hass.config
+    const haConfig = this._hass.config || {};
+    html += '<div class="section-title">\u{1F4F6} Network Info</div>';
+    html += '<div class="finding info"><div class="finding-desc">';
+    html += '<div style="display:grid;grid-template-columns:140px 1fr;gap:6px 12px;font-size:13px;">';
+    html += `<span style="font-weight:600;color:var(--bento-text-secondary)">Location name</span><span>${haConfig.location_name || 'N/A'}</span>`;
+    html += `<span style="font-weight:600;color:var(--bento-text-secondary)">HA Version</span><span>${haConfig.version || 'N/A'}</span>`;
+    html += `<span style="font-weight:600;color:var(--bento-text-secondary)">Time zone</span><span>${haConfig.time_zone || 'N/A'}</span>`;
+    const integrationCount = (haConfig.components || []).length;
+    html += `<span style="font-weight:600;color:var(--bento-text-secondary)">Integrations</span><span>${integrationCount} loaded</span>`;
+    html += '</div></div></div>';
 
     html += '<div class="section-title">\u{1F5A5}\uFE0F Exposed Addon Ports</div>';
     const exposedAddons = d.addons.filter(a => (a.ports && Object.keys(a.ports).length > 0) || (a.network && Object.keys(a.network).length > 0));
@@ -1158,7 +1177,9 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
       f.id.includes('ssl') || f.id.includes('host_network') || f.id.includes('exposed_addon_ports') ||
       f.id.includes('ports') || f.id.includes('ingress') || f.id.includes('webhook') ||
       f.id.includes('proxy') || f.id.includes('trusted') || f.id.includes('ip_ban') ||
-      f.id.includes('camera') || f.id.includes('media') || f.id.includes('risky')
+      f.id.includes('camera') || f.id.includes('media') || f.id.includes('risky') ||
+      f.id.includes('external') || f.id.includes('port_exposure') || f.id.includes('cors') ||
+      f.id.includes('mqtt') || f.id.includes('network')
     );
 
     if (networkFindings.length === 0) {
