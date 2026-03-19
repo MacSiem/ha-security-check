@@ -464,7 +464,6 @@ class HASecurityCheck extends HTMLElement {
 
       // Fetch network interfaces from Supervisor API
       let networkInfo = [];
-      let hostInfo = null;
       try {
         const netResp = await this._hass.callWS({ type: 'supervisor/api', endpoint: '/network/info', method: 'get' });
         networkInfo = netResp?.interfaces || netResp?.data?.interfaces || [];
