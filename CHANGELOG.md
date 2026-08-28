@@ -1,3 +1,11 @@
+## 5.0.6 (2026-08-28)
+
+- Isolation: Bento CSS is component-local and cannot be captured from `window.HAToolsBentoCSS` by load order.
+- Isolation: persistence is now card-local, removing `window._haToolsPersistence` load-order coupling while retaining existing localStorage keys.
+- Security: remove the suite-wide DOM/shadow-root injector; intro and support UI now render only inside this card.
+- Security: normalize non-string values before inherited escaping and escape audit/network data at final HTML sinks.
+- Test: add foreign-card isolation, no-document-observer, persisted dismiss, editor and hostile-array runtime checks.
+
 ## 5.0.5 (2026-07-18)
 
 - Fix (UI): the small accent dot before section titles no longer detaches from the title text (it was pushed to the opposite edge by the header's flex space-between); it is now pinned next to the title.

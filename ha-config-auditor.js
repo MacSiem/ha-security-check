@@ -1,11 +1,11 @@
-/* HA Tools split — ha-config-auditor v5.0.5 (2026-06-12) — single-tool standalone repo */
+/* HA Tools split — ha-config-auditor v5.0.6 (2026-08-28) — single-tool standalone repo */
 (function() {
 'use strict';
 
-// -- HA Tools Persistence (stub -- full impl in ha-tools-panel.js) --
-window._haToolsPersistence = window._haToolsPersistence || { _cache: {}, _hass: null, setHass(h) { this._hass = h; }, async save(k, d) { try { localStorage.setItem('ha-config-auditor-' + k, JSON.stringify(d)); } catch(e) { console.debug('[ha-config-auditor] caught:', e); } }, async load(k) { try { const r = localStorage.getItem('ha-config-auditor-' + k); return r ? JSON.parse(r) : null; } catch(e) { return null; } }, loadSync(k) { try { const r = localStorage.getItem('ha-config-auditor-' + k); return r ? JSON.parse(r) : null; } catch(e) { return null; } } };
+// Component-local persistence retains this card's existing localStorage keys.
+const haToolsPersistence = { _cache: {}, _hass: null, setHass(h) { this._hass = h; }, async save(k, d) { try { localStorage.setItem('ha-config-auditor-' + k, JSON.stringify(d)); } catch(e) { console.debug('[ha-config-auditor] caught:', e); } }, async load(k) { try { const r = localStorage.getItem('ha-config-auditor-' + k); return r ? JSON.parse(r) : null; } catch(e) { return null; } }, loadSync(k) { try { const r = localStorage.getItem('ha-config-auditor-' + k); return r ? JSON.parse(r) : null; } catch(e) { return null; } } };
 
-const _esc = window._haToolsEsc || ((s) => typeof s === 'string' ? s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]) : (s ?? ''));
+const _esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 
 /**
  * HA Config Auditor - Configuration best-practices audit tool for Home Assistant
@@ -13,8 +13,7 @@ const _esc = window._haToolsEsc || ((s) => typeof s === 'string' ? s.replace(/[&
  */
 /* ===== HA Tools split — inline shared infrastructure ===== */
 // Bento Design System CSS (inline copy — keeps tool standalone)
-if (typeof window !== 'undefined' && !window.HAToolsBentoCSS) {
-  window.HAToolsBentoCSS = `
+const HA_CONFIG_AUDITOR_BENTO_CSS = `
 /* ═══════════════════════════════════════════════
    HA Tools — Bento Design System v2.0 (Premium)
    ═══════════════════════════════════════════════ */
@@ -504,211 +503,43 @@ pre {
   .stat-value, .stat-val, .kpi-val { font-size: 18px; }
 }
 `;
+// Card-owned support footer. Never mutates document or foreign cards.
+const _LOCAL_INTRO_KEY = 'ha-intro-dismissed-ha-config-auditor';
+const _LOCAL_INTRO = {
+  headline: "Configuration best-practices audit with remediation tips.",
+  steps: ["Overview shows passed, warning, and failed check counts.","Click a finding row for step-by-step remediation.","Tips tab — checklist of best practices."]
+};
+const _LOCAL_DONATE_HTML = ''
+  + '<div class="donate-section" data-source="ha-config-auditor">'
+  + '  <div class="donate-text">'
+  + '    <h3>❤️ Support HA Tools Development</h3>'
+  + '    <p>If this tool makes your Home Assistant life easier, consider supporting the project. Every coffee motivates further development!</p>'
+  + '  </div>'
+  + '  <div class="donate-buttons">'
+  + '    <a class="donate-btn coffee" href="https://buymeacoffee.com/macsiem" target="_blank" rel="noopener noreferrer">☕ Buy Me a Coffee</a>'
+  + '    <a class="donate-btn paypal" href="https://www.paypal.com/donate/?hosted_button_id=Y967H4PLRBN8W" target="_blank" rel="noopener noreferrer">💳 PayPal</a>'
+  + '  </div>'
+  + '</div>';
+function _localIntroDismissed() {
+  try { return localStorage.getItem(_LOCAL_INTRO_KEY) === '1'; } catch(e) { return false; }
 }
-// XSS escape singleton (idempotent)
-if (typeof window !== 'undefined') {
-  window._haToolsEsc = window._haToolsEsc || (function(){
-    var MAP = {};
-    MAP[String.fromCharCode(38)] = '&amp;';
-    MAP[String.fromCharCode(60)] = '&lt;';
-    MAP[String.fromCharCode(62)] = '&gt;';
-    MAP[String.fromCharCode(34)] = '&quot;';
-    MAP[String.fromCharCode(39)] = '&#39;';
-    return function(s){ return typeof s === 'string' ? s.replace(/[&<>"']/g, function(c){ return MAP[c]; }) : (s == null ? '' : s); };
-  })();
-}
-// Universal donate footer injector — guarantees the support box appears
-// on every split-tool card regardless of internal render state.
-if (typeof window !== 'undefined' && !window.__haToolsSplitDonateInjector) {
-  window.__haToolsSplitDonateInjector = true;
-  var SPLIT_TAGS = ['ha-purge-cache','ha-yaml-checker','ha-data-exporter','ha-baby-tracker','ha-chore-tracker','ha-energy-optimizer','ha-energy-insights','ha-energy-email','ha-log-email','ha-smart-reports','ha-network-map','ha-trace-viewer','ha-automation-analyzer','ha-storage-monitor','ha-backup-manager','ha-config-auditor','ha-device-health','ha-sentence-manager','ha-encoding-fixer','ha-entity-renamer','ha-frigate-privacy','ha-vacuum-water-monitor'];
-  var DONATE_HTML = ''
-    + '<div class="donate-section" data-source="ha-tools-split-injector">'
-    + '  <div class="donate-text">'
-    + '    <h3>❤️ Support HA Tools Development</h3>'
-    + '    <p>If this tool makes your Home Assistant life easier, consider supporting the project. Every coffee motivates further development!</p>'
-    + '  </div>'
-    + '  <div class="donate-buttons">'
-    + '    <a class="donate-btn coffee" href="https://buymeacoffee.com/macsiem" target="_blank" rel="noopener noreferrer">☕ Buy Me a Coffee</a>'
-    + '    <a class="donate-btn paypal" href="https://www.paypal.com/donate/?hosted_button_id=Y967H4PLRBN8W" target="_blank" rel="noopener noreferrer">💳 PayPal</a>'
-    + '  </div>'
+function _renderLocalIntro() {
+  if (_localIntroDismissed()) return '';
+  const steps = _LOCAL_INTRO.steps.map(step => '<li>' + _esc(step) + '</li>').join('');
+  return '<div class="intro-banner" data-intro="ha-config-auditor">'
+    + '<button class="intro-dismiss" type="button" title="Dismiss" aria-label="Dismiss">✕</button>'
+    + '<div class="intro-headline">💡 ' + _esc(_LOCAL_INTRO.headline) + '</div>'
+    + '<ol class="intro-steps">' + steps + '</ol>'
     + '</div>';
-  function deepFindAll(tag, root) {
-    var out = [];
-    (function walk(node){
-      if (!node || !node.querySelectorAll) return;
-      var children = node.querySelectorAll('*');
-      for (var i = 0; i < children.length; i++) {
-        var c = children[i];
-        if (c.tagName && c.tagName.toLowerCase() === tag) out.push(c);
-        if (c.shadowRoot) walk(c.shadowRoot);
-      }
-    })(root || document);
-    return out;
-  }
-  // Per-tool prerequisite check + inline install banner
-  var PREREQS = {
-    'ha-energy-email': { service: 'ha_tools_email', repo: 'ha-tools-email-integration', label: 'HA Tools Email integration', kind: 'integration' },
-    'ha-log-email':    { service: 'ha_tools_email', repo: 'ha-tools-email-integration', label: 'HA Tools Email integration', kind: 'integration' },
-    'ha-encoding-fixer': { shellCommand: 'fix_encoding', label: 'shell_command.fix_encoding (optional advanced feature)', kind: 'shell_command_optional' }
-  };
-  // Per-tool first-run intro banner (one-line scope + 3 use cases)
-  var INTROS = {
-    'ha-yaml-checker': { headline: 'Validate Home Assistant YAML configuration on demand.', steps: ['Click \'Check HA Configuration\' to run homeassistant.check_config.', 'Switch to \'Encje\' tab to search entities by domain.', 'Use \'Template\' tab to preview Jinja2 templates.'] },
-    'ha-data-exporter': { headline: 'Browse, filter, and export Home Assistant entity data.', steps: ['Filter by domain or search entities live.', 'Take a snapshot or export selection to CSV / JSON.', 'Privacy warning before downloading attributes with sensitive data.'] },
-    'ha-chore-tracker': { headline: 'Household chore tracker with kanban + recurring schedules.', steps: ['Add a chore: name + assignee + frequency.', 'Drag from \'Todo\' to \'Done\' to mark complete.', 'Stats tab shows counts per assignee.'] },
-    'ha-energy-optimizer': { headline: 'Tariff-aware energy usage with hourly heatmaps + tips.', steps: ['Today / Yesterday / 7-day / 30-day usage and cost.', 'Patterns tab — hourly heatmap of consumption.', 'Recommendations tab — auto-generated tips.'] },
-    'ha-energy-insights': { headline: 'Daily / weekly / monthly energy charts + top consumers.', steps: ['Switch view tabs to see consumption over time.', 'Top devices ranked by kWh.', 'Tips tab with energy-saving suggestions.'] },
-    'ha-energy-email': { headline: 'Energy reports delivered by email via ha_tools_email.', steps: ['Click \'Send Now\' to email the current snapshot.', 'Schedule daily / weekly / monthly delivery.', 'Configure SMTP in the Schedule tab (one-time).'] },
-    'ha-log-email': { headline: 'Daily error / warning digests delivered by email.', steps: ['Click \'Send Now\' to email the current digest.', 'Schedule daily delivery + threshold (e.g. \u22653 errors).', 'Requires ha-tools-email-integration.'] },
-    'ha-smart-reports': { headline: 'Aggregate weekly / monthly reports — energy + automations + state changes.', steps: ['Weekly summary card on Overview.', 'Drill down by Energy / Automations / System sub-tabs.', 'Privacy-safe view strips entity names before sharing.'] },
-    'ha-network-map': { headline: 'Visualise the network around HA — devices, topology, MAC bindings.', steps: ['Devices tab — table of all known devices.', 'Topology tab — graph view of the network.', 'Click \'Rescan\' to ping the local subnet (user-initiated).'] },
-    'ha-trace-viewer': { headline: 'Step through HA automation traces with a flow graph.', steps: ['Pick automation in sidebar to see latest 5 traces.', 'Click trace for full path through triggers / conditions / actions.', 'Export trace as JSON for offline debug.'] },
-    'ha-automation-analyzer': { headline: 'Surface slow / failing / suspicious automations.', steps: ['Overview shows total + health score + top failing.', 'Performance tab ranks by avg runtime.', 'Optimization tab suggests improvements (loops, redundant triggers).'] },
-    'ha-storage-monitor': { headline: 'Disk + recorder DB + add-on storage breakdown.', steps: ['Overview shows used / free + per-category breakdown.', 'Backups tab — count + size warning.', 'Cleanup tab — actionable suggestions.'] },
-    'ha-backup-manager': { headline: 'Create + list + inspect HA backups.', steps: ['List existing backups (date / size / encryption).', 'Click \'Create backup now\' to invoke backup.create.', 'Restore selected backup.'] },
-    'ha-config-auditor': { headline: 'Configuration best-practices audit with remediation tips.', steps: ['Overview shows passed, warning, and failed check counts.', 'Click a finding row for step-by-step remediation.', 'Tips tab — checklist of best practices.'] },
-    'ha-device-health': { headline: 'Device battery / signal / last-seen health.', steps: ['List devices grouped by health (OK / Warning / Critical).', 'Filter by low battery (<20%) or weak signal.', 'Click device for model / manufacturer / last seen.'] },
-    'ha-encoding-fixer': { headline: 'Detect + fix UTF-8 / mojibake issues across HA.', steps: ['Click \'Scan\' to walk entity registry + states.', 'Per-entity \'Fix\' button calls homeassistant.reload.', 'Optional: deep file scan via shell_command (see README).'] },
-    'ha-entity-renamer': { headline: 'Bulk-rename HA entities + friendly names.', steps: ['Pick an entity, set new ID — entity_registry/update.', 'Bulk pattern: sensor.old_* \u2192 sensor.new_*.', 'Optional: rewrite Lovelace dashboard refs.'] },
-    'ha-frigate-privacy': { headline: 'One-click Frigate privacy mode (pause detection / recording / snapshots).', steps: ['Click \'Pause 15 min\' for instant privacy.', 'Schedules tab — daily privacy window (e.g. 22:00\u201306:00).', 'Resume at any time to re-enable cameras.'] }
-  };
-  var PREREQ_HTML_CACHE = {};
-  function buildPrereqBanner(tag, prereq, hass) {
-    if (PREREQ_HTML_CACHE[tag]) return PREREQ_HTML_CACHE[tag];
-    var html = '';
-    if (prereq.kind === 'integration') {
-      html = '<div class="prereq-banner prereq-error" data-prereq="' + tag + '">' +
-        '<div class="prereq-icon">⚠️</div>' +
-        '<div class="prereq-text">' +
-          '<strong>This tool requires the ' + prereq.label + '</strong><br>' +
-          'Install it from HACS: <code>https://github.com/MacSiem/' + prereq.repo + '</code> ' +
-          '(Category: <strong>Integration</strong>) — then add <code>' + prereq.service + ':</code> to your <code>configuration.yaml</code> and restart HA.' +
-        '</div>' +
-        '<a class="prereq-cta" href="https://github.com/MacSiem/' + prereq.repo + '" target="_blank" rel="noopener noreferrer">Open install guide ↗</a>' +
-      '</div>';
-    } else if (prereq.kind === 'shell_command_optional') {
-      html = '<div class="prereq-banner prereq-info" data-prereq="' + tag + '">' +
-        '<div class="prereq-icon">💡</div>' +
-        '<div class="prereq-text">' +
-          '<strong>Optional advanced feature: deep file scan</strong><br>' +
-          'To enable scanning of <code>configuration.yaml</code> files, install the bundled <code>encoding_scanner.py</code> + add <code>shell_command:</code> entries. See README.' +
-        '</div>' +
-      '</div>';
-    }
-    PREREQ_HTML_CACHE[tag] = html;
-    return html;
-  }
-  function buildIntroBanner(tag, intro) {
-    var stepsHtml = intro.steps.map(function(s){ return '<li>' + s + '</li>'; }).join('');
-    return '<div class="intro-banner" data-intro="' + tag + '">' +
-      '<button class="intro-dismiss" type="button" title="Dismiss" aria-label="Dismiss">✕</button>' +
-      '<div class="intro-headline">💡 ' + intro.headline + '</div>' +
-      '<ol class="intro-steps">' + stepsHtml + '</ol>' +
-    '</div>';
-  }
-  function introDismissed(tag) {
-    try { return localStorage.getItem('ha-intro-dismissed-' + tag) === '1'; } catch(e) { return false; }
-  }
-  function dismissIntro(tag, el) {
-    try { localStorage.setItem('ha-intro-dismissed-' + tag, '1'); } catch(e) {}
-    var node = el.shadowRoot && el.shadowRoot.querySelector('.intro-banner[data-intro="' + tag + '"]');
-    if (node) node.remove();
-  }
-  function injectInto(tag, el) {
-        // panel_custom auto-init: HA assigns hass/panel/narrow but does not always call setConfig.
-        if (typeof el.setConfig === 'function' && !el.config && !el._config) {
-          try { el.setConfig({ type: 'custom:' + tag, title: tag }); } catch(e) {}
-        }
-        if (!el.shadowRoot) return;
-        // 0) First-run intro banner (skip if tool has its own native tip)
-        var intro = INTROS[tag];
-        if (intro && !introDismissed(tag)) {
-          var hasOwnTip = el.shadowRoot.querySelector('#tip-banner, .tip-banner');
-          var injectedIntro = el.shadowRoot.querySelector('.intro-banner[data-intro="' + tag + '"]');
-          if (!hasOwnTip && !injectedIntro) {
-            try {
-              var _introTmp = document.createElement('div');
-              _introTmp.innerHTML = buildIntroBanner(tag, intro);
-              var _introNode = _introTmp.firstElementChild;
-              if (_introNode) el.shadowRoot.insertBefore(_introNode, el.shadowRoot.firstChild);
-              var btn = el.shadowRoot.querySelector('.intro-banner[data-intro="' + tag + '"] .intro-dismiss');
-              if (btn) btn.addEventListener('click', function(ev){ ev.stopPropagation(); dismissIntro(tag, el); });
-            } catch(e) {}
-          }
-        }
-        // 1) Prereq banner — checked every poll so it disappears when prereq becomes available
-        var prereq = PREREQS[tag];
-        if (prereq && el._hass) {
-          var hassReady = !!el._hass;
-          var present = true;
-          if (prereq.service) present = !!(el._hass.services && el._hass.services[prereq.service]);
-          if (prereq.shellCommand) present = !!(el._hass.services && el._hass.services.shell_command && el._hass.services.shell_command[prereq.shellCommand]);
-          var existing = el.shadowRoot.querySelector('.prereq-banner[data-prereq="' + tag + '"]');
-          if (!present && hassReady) {
-            if (!existing) {
-              try {
-                var _prereqTmp = document.createElement('div');
-                _prereqTmp.innerHTML = buildPrereqBanner(tag, prereq, el._hass);
-                var _prereqNode = _prereqTmp.firstElementChild;
-                if (_prereqNode) el.shadowRoot.insertBefore(_prereqNode, el.shadowRoot.firstChild);
-              } catch(e) {}
-            }
-          } else if (present && existing) {
-            existing.remove();
-          }
-        }
-        // 2) Donate footer
-        if (el.shadowRoot.querySelector('.donate-section')) return;
-        try {
-          var _donateTmp = document.createElement('div');
-          _donateTmp.innerHTML = DONATE_HTML;
-          while (_donateTmp.firstChild) el.shadowRoot.appendChild(_donateTmp.firstChild);
-        } catch(e) {}
-    // Anti-flicker: watch this card's own shadowRoot so a re-render (innerHTML wipe)
-    // re-injects the footer synchronously in the same microtask, before paint.
-    if (el.shadowRoot && !el.__haToolsReinjectObs) {
-      try {
-        el.__haToolsReinjectObs = new MutationObserver(function(){
-          if (el.__haToolsReinjecting) return;
-          el.__haToolsReinjecting = true;
-          try { injectInto(tag, el); } catch(e) {}
-          el.__haToolsReinjecting = false;
-        });
-        el.__haToolsReinjectObs.observe(el.shadowRoot, { childList: true });
-      } catch(e) {}
-    }
-  }
-  function injectAll() {
-    SPLIT_TAGS.forEach(function(tag){
-      deepFindAll(tag).forEach(function(el){ injectInto(tag, el); });
-    });
-  }
-  // Run immediately, then aggressive MutationObserver for late mounts + view switches.
-  injectAll();
-  setTimeout(injectAll, 250);
-  setTimeout(injectAll, 1000);
-  setTimeout(injectAll, 3000);
-  // MutationObserver catches every new node anywhere in the DOM, including shadow root attachments
-  // that are deferred until the user navigates to a view.
-  try {
-    var obs = new MutationObserver(function(muts){
-      // Debounce: schedule a microtask injection
-      if (window.__haToolsDonateScheduled) return;
-      window.__haToolsDonateScheduled = true;
-      setTimeout(function(){ window.__haToolsDonateScheduled = false; injectAll(); }, 100);
-    });
-    obs.observe(document.body, { childList: true, subtree: true });
-  } catch(e) {}
-  // Also re-inject on hash/path change (Lovelace view switches)
-  window.addEventListener('hashchange', function(){ setTimeout(injectAll, 200); });
-  window.addEventListener('popstate', function(){ setTimeout(injectAll, 200); });
-  // Backup interval (every 3s for first 5min — handles cases where MutationObserver missed events)
-  var pollCount = 0;
-  var pollInterval = setInterval(function(){
-    injectAll();
-    if (++pollCount >= 100) clearInterval(pollInterval);
-  }, 3000);
+}
+function _bindLocalIntroDismiss(root) {
+  const button = root && root.querySelector('.intro-banner[data-intro="ha-config-auditor"] .intro-dismiss');
+  if (!button) return;
+  button.addEventListener('click', event => {
+    event.stopPropagation();
+    try { localStorage.setItem(_LOCAL_INTRO_KEY, '1'); } catch(e) {}
+    button.closest('.intro-banner')?.remove();
+  });
 }
 /* ============================================================ */
 
@@ -915,24 +746,24 @@ class HAConfigAuditor extends HTMLElement {
 
       const outdatedAddons = installedAddons.filter(a => a.update_available);
       if (outdatedAddons.length > 0) {
-        findings.warning.push({ id: 'addon_updates', title: `${outdatedAddons.length} addon(s) have updates`, desc: outdatedAddons.map(a => `${this._sanitize(a.name)}: ${a.version} \u2192 ${a.version_latest}`).join(', '), fix: 'Update addons via Settings \u2192 Add-ons' });
+        findings.warning.push({ id: 'addon_updates', title: `${outdatedAddons.length} addon(s) have updates`, desc: outdatedAddons.map(a => `${(a.name)}: ${a.version} \u2192 ${a.version_latest}`).join(', '), fix: 'Update addons via Settings \u2192 Add-ons' });
       } else if (installedAddons.length > 0) {
         findings.pass.push({ id: 'addon_updates', title: 'All addons up to date', desc: `${installedAddons.length} addon(s) installed` });
       }
 
       const hostNetAddons = installedAddons.filter(a => a.host_network);
       if (hostNetAddons.length > 0) {
-        findings.info.push({ id: 'host_network', title: `${hostNetAddons.length} addon(s) use host networking`, desc: hostNetAddons.map(a => this._sanitize(a.name)).join(', '), fix: 'Verify these addons require host network access' });
+        findings.info.push({ id: 'host_network', title: `${hostNetAddons.length} addon(s) use host networking`, desc: hostNetAddons.map(a => (a.name)).join(', '), fix: 'Verify these addons require host network access' });
       }
 
       const unprotectedAddons = installedAddons.filter(a => a.protected === false);
       if (unprotectedAddons.length > 0) {
-        findings.critical.push({ id: 'unprotected_addons', title: `${unprotectedAddons.length} addon(s) with protection disabled`, desc: unprotectedAddons.map(a => this._sanitize(a.name)).join(', '), fix: 'Enable protection mode in addon settings unless you specifically need it disabled' });
+        findings.critical.push({ id: 'unprotected_addons', title: `${unprotectedAddons.length} addon(s) with protection disabled`, desc: unprotectedAddons.map(a => (a.name)).join(', '), fix: 'Enable protection mode in addon settings unless you specifically need it disabled' });
       }
 
       const noAutoUpdate = installedAddons.filter(a => a.auto_update === false);
       if (noAutoUpdate.length > 3) {
-        findings.info.push({ id: 'auto_update', title: `${noAutoUpdate.length} addon(s) without auto-update`, desc: noAutoUpdate.map(a => this._sanitize(a.name)).join(', '), fix: 'Consider enabling auto-update for non-critical addons' });
+        findings.info.push({ id: 'auto_update', title: `${noAutoUpdate.length} addon(s) without auto-update`, desc: noAutoUpdate.map(a => (a.name)).join(', '), fix: 'Consider enabling auto-update for non-critical addons' });
       }
 
       const configEntries = this._hass.config;
@@ -986,12 +817,12 @@ class HAConfigAuditor extends HTMLElement {
 
         const owners = users.filter(u => u.is_owner);
         if (owners.length > 1) {
-          findings.warning.push({ id: 'multi_owner', title: `${owners.length} owner accounts detected`, desc: owners.map(u => this._sanitize(u.name)).join(', '), fix: 'Limit owner accounts to minimize attack surface. Demote unnecessary owners to admin.' });
+          findings.warning.push({ id: 'multi_owner', title: `${owners.length} owner accounts detected`, desc: owners.map(u => (u.name)).join(', '), fix: 'Limit owner accounts to minimize attack surface. Demote unnecessary owners to admin.' });
         }
 
         const localOnly = users.filter(u => u.local_only);
         if (localOnly.length > 0) {
-          findings.pass.push({ id: 'local_only_users', title: `${localOnly.length} user(s) restricted to local access`, desc: localOnly.map(u => this._sanitize(u.name)).join(', ') });
+          findings.pass.push({ id: 'local_only_users', title: `${localOnly.length} user(s) restricted to local access`, desc: localOnly.map(u => (u.name)).join(', ') });
         }
       }
 
@@ -1006,15 +837,15 @@ class HAConfigAuditor extends HTMLElement {
       const sshAddon = installedAddons.find(a => a.slug?.includes('ssh') || a.name?.toLowerCase().includes('ssh'));
       if (sshAddon) {
         if (sshAddon.state === 'started') {
-          findings.warning.push({ id: 'ssh_addon', title: 'SSH addon is running', desc: `${this._sanitize(sshAddon.name)} (${sshAddon.version})`, fix: 'Ensure SSH uses key-based auth. Disable if not actively needed.' });
+          findings.warning.push({ id: 'ssh_addon', title: 'SSH addon is running', desc: `${(sshAddon.name)} (${sshAddon.version})`, fix: 'Ensure SSH uses key-based auth. Disable if not actively needed.' });
         } else {
-          findings.info.push({ id: 'ssh_addon', title: 'SSH addon installed but stopped', desc: this._sanitize(sshAddon.name) });
+          findings.info.push({ id: 'ssh_addon', title: 'SSH addon installed but stopped', desc: (sshAddon.name) });
         }
       }
 
       const mqttAddon = installedAddons.find(a => a.slug?.includes('mosquitto') || a.name?.toLowerCase().includes('mqtt'));
       if (mqttAddon && mqttAddon.state === 'started') {
-        findings.info.push({ id: 'mqtt_broker', title: 'MQTT broker is running', desc: `${this._sanitize(mqttAddon.name)}`, fix: 'Ensure MQTT has authentication enabled and is not exposed to the internet' });
+        findings.info.push({ id: 'mqtt_broker', title: 'MQTT broker is running', desc: `${(mqttAddon.name)}`, fix: 'Ensure MQTT has authentication enabled and is not exposed to the internet' });
       }
 
       const automationEntities = allEntities.filter(e => e.startsWith('automation.'));
@@ -1026,7 +857,7 @@ class HAConfigAuditor extends HTMLElement {
         return name.includes('ftp') || name.includes('samba') || name.includes('telnet');
       });
       if (riskyAddons.length > 0) {
-        findings.warning.push({ id: 'risky_services', title: 'Potentially risky network services', desc: riskyAddons.map(a => `${this._sanitize(a.name)} (${a.state || 'stopped'})`).join(', '), fix: 'Ensure file sharing services are properly secured and only accessible on local network' });
+        findings.warning.push({ id: 'risky_services', title: 'Potentially risky network services', desc: riskyAddons.map(a => `${(a.name)} (${a.state || 'stopped'})`).join(', '), fix: 'Ensure file sharing services are properly secured and only accessible on local network' });
       }
 
       // Port exposure verification
@@ -1035,7 +866,7 @@ class HAConfigAuditor extends HTMLElement {
         return config && config.host_port !== null && config.host_port !== undefined;
       }));
       if (portExposingAddons.length > 0) {
-        findings.info.push({ id: 'port_exposure', title: `${portExposingAddons.length} addon(s) expose host ports`, desc: portExposingAddons.map(a => this._sanitize(a.name) + ': ' + Object.entries(a.ports || {}).filter(([, c]) => c?.host_port).map(([p, c]) => p + '\u2192' + c.host_port).join(', ')).join('; '), fix: 'Verify each exposed port is necessary. Use Ingress when available to avoid port exposure.' });
+        findings.info.push({ id: 'port_exposure', title: `${portExposingAddons.length} addon(s) expose host ports`, desc: portExposingAddons.map(a => (a.name) + ': ' + Object.entries(a.ports || {}).filter(([, c]) => c?.host_port).map(([p, c]) => p + '\u2192' + c.host_port).join(', ')).join('; '), fix: 'Verify each exposed port is necessary. Use Ingress when available to avoid port exposure.' });
       }
 
       // Long-lived access tokens check
@@ -1112,7 +943,7 @@ class HAConfigAuditor extends HTMLElement {
       try {
         const privilegedAddons = installedAddons.filter(a => a.privileged === true);
         if (privilegedAddons.length > 0) {
-          findings.warning.push({ id: 'privileged_addons', title: `${privilegedAddons.length} addon(s) with privileged access`, desc: privilegedAddons.map(a => this._sanitize(a.name)).join(', '), fix: 'Privileged addons have root-level access. Verify they are trustworthy and necessary.' });
+          findings.warning.push({ id: 'privileged_addons', title: `${privilegedAddons.length} addon(s) with privileged access`, desc: privilegedAddons.map(a => (a.name)).join(', '), fix: 'Privileged addons have root-level access. Verify they are trustworthy and necessary.' });
         }
       } catch(e) { console.debug('[config-auditor]', e.message); }
 
@@ -1126,7 +957,7 @@ class HAConfigAuditor extends HTMLElement {
         if (exposedAddons.length > 0) {
           const portList = exposedAddons.map(a => {
             const ports = a.ports ? Object.keys(a.ports).join(',') : '';
-            return `${this._sanitize(a.name)}${ports ? `:${ports}` : ''}`;
+            return `${(a.name)}${ports ? `:${ports}` : ''}`;
           }).join('; ');
           findings.info.push({ id: 'exposed_addon_ports', title: `${exposedAddons.length} addon(s) expose port(s)`, desc: portList, fix: 'Ensure exposed ports are not accessible from the internet. Use firewall rules if needed.' });
         }
@@ -1136,7 +967,7 @@ class HAConfigAuditor extends HTMLElement {
       try {
         const nonIngressAddons = installedAddons.filter(a => a.ingress !== true && a.ports && Object.keys(a.ports).length > 0);
         if (nonIngressAddons.length > 0) {
-          findings.info.push({ id: 'non_ingress_addons', title: `${nonIngressAddons.length} addon(s) not using Ingress`, desc: nonIngressAddons.map(a => this._sanitize(a.name)).join(', '), fix: 'Consider using Ingress for safer addon access (only through HA UI)' });
+          findings.info.push({ id: 'non_ingress_addons', title: `${nonIngressAddons.length} addon(s) not using Ingress`, desc: nonIngressAddons.map(a => (a.name)).join(', '), fix: 'Consider using Ingress for safer addon access (only through HA UI)' });
         }
       } catch(e) { console.debug('[config-auditor]', e.message); }
 
@@ -1220,7 +1051,7 @@ class HAConfigAuditor extends HTMLElement {
           return config.some(d => d && (d.includes('bluetooth') || d.includes('usb') || d.includes('/dev/bus/usb')));
         });
         if (btUsbAddons.length > 0) {
-          findings.info.push({ id: 'bt_usb_addons', title: `${btUsbAddons.length} addon(s) with Bluetooth/USB access`, desc: btUsbAddons.map(a => this._sanitize(a.name)).join(', '), fix: 'Verify that these addons are trustworthy. USB/Bluetooth access provides direct hardware access.' });
+          findings.info.push({ id: 'bt_usb_addons', title: `${btUsbAddons.length} addon(s) with Bluetooth/USB access`, desc: btUsbAddons.map(a => (a.name)).join(', '), fix: 'Verify that these addons are trustworthy. USB/Bluetooth access provides direct hardware access.' });
         }
       } catch(e) { console.debug('[config-auditor]', e.message); }
 
@@ -1345,7 +1176,7 @@ class HAConfigAuditor extends HTMLElement {
   _render() {
     if (!this._hass) return;
     const html = `
-      <style>${window.HAToolsBentoCSS || ""}
+      <style>${HA_CONFIG_AUDITOR_BENTO_CSS}
 /* === HA Tools split — premium banners (donate / intro / prereq) === */
 
 /* Donation footer — diamond top */
@@ -1980,7 +1811,7 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
       
 
 </style>
-      
+        ${_renderLocalIntro()}
         <div class="card">
           <div class="card-header">
             <h2>${_esc(this._config.title || '')}</h2>
@@ -1997,11 +1828,12 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
           <div id="content"></div>
         
         </div>
-      
+        ${_LOCAL_DONATE_HTML}
     `;
     if (this._lastHtml === html) return;
     this._lastHtml = html;
     this.shadowRoot.innerHTML = html;
+    _bindLocalIntroDismiss(this.shadowRoot);
 
     this.shadowRoot.querySelectorAll('.tab-button').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -2067,7 +1899,7 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
   _renderFinding(f, severity) {
     const icons = { critical: '\u{1F6A8}', warning: '\u26A0\uFE0F', info: '\u2139\uFE0F', pass: '\u2705' };
     const labels = { critical: 'Failed', warning: 'Warning', info: 'Info', pass: 'Pass' };
-    return `<div class="finding ${severity}"><div class="finding-header"><span class="finding-icon">${icons[severity]}</span><span class="finding-title">${f.title}</span><span class="finding-badge badge-${severity}">${labels[severity]}</span></div><div class="finding-desc">${f.desc}</div>${f.fix ? `<div class="finding-fix">\u{1F4A1} ${f.fix}</div>` : ''}</div>`;
+    return `<div class="finding ${severity}"><div class="finding-header"><span class="finding-icon">${icons[severity]}</span><span class="finding-title">${_esc(f.title)}</span><span class="finding-badge badge-${severity}">${labels[severity]}</span></div><div class="finding-desc">${_esc(f.desc)}</div>${f.fix ? `<div class="finding-fix">\u{1F4A1} ${_esc(f.fix)}</div>` : ''}</div>`;
   }
 
   _renderAddonsAndIntegrations(d) {
@@ -2085,7 +1917,7 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
       if (noSupervisor) return `<div class="empty-msg">\u2139\uFE0F ${this._lang === 'pl' ? 'Addony wymagaj\u0105 HA OS lub Supervised. Brak Supervisor API na tej instalacji.' : 'Addons require HA OS or Supervised. No Supervisor API detected on this installation.'}</div>`;
       return '<div class="empty-msg">No addons installed</div>';
     }
-    return `<div class="table-container"><table class="entity-table"><thead><tr><th>Addon</th><th>Version</th><th>State</th><th>Protection</th><th>Auto-update</th><th>Host Network</th></tr></thead><tbody>${d.addons.map(a => { const prot = a.protected !== false; const autoUp = a.auto_update !== false; const hostNet = a.host_network === true; const updateAvail = a.update_available; return `<tr><td>${this._sanitize(a.name || a.slug)}${updateAvail ? ' \u2B06\uFE0F' : ''}</td><td>${a.version || '-'}${updateAvail ? ` \u2192 ${a.version_latest}` : ''}</td><td><span class="status-dot" style="background:${a.state === 'started' ? '#4caf50' : '#9e9e9e'}"></span>${a.state || 'stopped'}</td><td style="color:${prot ? '#4caf50' : '#f44336'}">${prot ? '\u2713 On' : '\u2717 Off'}</td><td style="color:${autoUp ? '#4caf50' : '#ff9800'}">${autoUp ? '\u2713 On' : '\u2717 Off'}</td><td style="color:${hostNet ? '#ff9800' : 'var(--bento-text-secondary)'}">${hostNet ? '\u26A0 Yes' : 'No'}</td></tr>`; }).join('')}</tbody></table></div>`;
+    return `<div class="table-container"><table class="entity-table"><thead><tr><th>Addon</th><th>Version</th><th>State</th><th>Protection</th><th>Auto-update</th><th>Host Network</th></tr></thead><tbody>${d.addons.map(a => { const prot = a.protected !== false; const autoUp = a.auto_update !== false; const hostNet = a.host_network === true; const updateAvail = a.update_available; return `<tr><td>${_esc(a.name || a.slug)}${updateAvail ? ' \u2B06\uFE0F' : ''}</td><td>${_esc(a.version || '-')}${updateAvail ? ` \u2192 ${_esc(a.version_latest)}` : ''}</td><td><span class="status-dot" style="background:${a.state === 'started' ? '#4caf50' : '#9e9e9e'}"></span>${_esc(a.state || 'stopped')}</td><td style="color:${prot ? '#4caf50' : '#f44336'}">${prot ? '\u2713 On' : '\u2717 Off'}</td><td style="color:${autoUp ? '#4caf50' : '#ff9800'}">${autoUp ? '\u2713 On' : '\u2717 Off'}</td><td style="color:${hostNet ? '#ff9800' : 'var(--bento-text-secondary)'}">${hostNet ? '\u26A0 Yes' : 'No'}</td></tr>`; }).join('')}</tbody></table></div>`;
   }
 
   _renderUsers(d) {
@@ -2118,24 +1950,24 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
     } else {
       html += `<div class="finding-header"><span class="finding-icon">\u2139\uFE0F</span><span class="finding-title">No External URL</span></div>`;
     }
-    html += `<div class="finding-desc">${externalUrl || 'Not configured'}</div></div>`;
+    html += `<div class="finding-desc">${_esc(externalUrl || 'Not configured')}</div></div>`;
 
     html += `<div class="finding ${internalUrl.startsWith('https://') ? 'pass' : 'info'}">`;
     html += `<div class="finding-header"><span class="finding-icon">\u2139\uFE0F</span><span class="finding-title">Internal URL</span></div>`;
-    html += `<div class="finding-desc">${internalUrl || 'http://homeassistant.local:8123 (default)'}</div></div>`;
+    html += `<div class="finding-desc">${_esc(internalUrl || 'http://homeassistant.local:8123 (default)')}</div></div>`;
 
     // Network info from hass.config
     const haConfig = this._hass.config || {};
     html += '<div class="section-title">\u{1F4F6} Network Info</div>';
     html += '<div class="finding info"><div class="finding-desc">';
     html += '<div style="display:grid;grid-template-columns:140px 1fr;gap:6px 12px;font-size:13px;">';
-    html += `<span style="font-weight:600;color:var(--bento-text-secondary)">Location name</span><span>${haConfig.location_name || 'N/A'}</span>`;
-    html += `<span style="font-weight:600;color:var(--bento-text-secondary)">HA Version</span><span>${haConfig.version || 'N/A'}</span>`;
+    html += `<span style="font-weight:600;color:var(--bento-text-secondary)">Location name</span><span>${_esc(haConfig.location_name || 'N/A')}</span>`;
+    html += `<span style="font-weight:600;color:var(--bento-text-secondary)">HA Version</span><span>${_esc(haConfig.version || 'N/A')}</span>`;
     const hi = d.hostInfo || {};
-    if (hi.hostname) html += `<span style="font-weight:600;color:var(--bento-text-secondary)">Hostname</span><span>${hi.hostname}</span>`;
-    if (hi.operating_system) html += `<span style="font-weight:600;color:var(--bento-text-secondary)">OS</span><span>${hi.operating_system}</span>`;
-    if (hi.supervisor) html += `<span style="font-weight:600;color:var(--bento-text-secondary)">Supervisor</span><span>${hi.supervisor}</span>`;
-    html += `<span style="font-weight:600;color:var(--bento-text-secondary)">Time zone</span><span>${haConfig.time_zone || 'N/A'}</span>`;
+    if (hi.hostname) html += `<span style="font-weight:600;color:var(--bento-text-secondary)">Hostname</span><span>${_esc(hi.hostname)}</span>`;
+    if (hi.operating_system) html += `<span style="font-weight:600;color:var(--bento-text-secondary)">OS</span><span>${_esc(hi.operating_system)}</span>`;
+    if (hi.supervisor) html += `<span style="font-weight:600;color:var(--bento-text-secondary)">Supervisor</span><span>${_esc(hi.supervisor)}</span>`;
+    html += `<span style="font-weight:600;color:var(--bento-text-secondary)">Time zone</span><span>${_esc(haConfig.time_zone || 'N/A')}</span>`;
     const integrationCount = d.integrations?.length || (haConfig.components || []).length;
     const componentCount = (haConfig.components || []).length;
     html += `<span style="font-weight:600;color:var(--bento-text-secondary)">Integrations</span><span>${integrationCount > 0 ? integrationCount + ' entries' : componentCount > 0 ? componentCount + ' components' : 'N/A'}</span>`;
@@ -2160,18 +1992,18 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
         html += '<div class="finding info" style="margin-bottom:8px">';
         html += '<div class="finding-header">';
         html += '<span class="finding-icon">' + (type === 'wireless' ? '\u{1F4F6}' : '\u{1F50C}') + '</span>';
-        html += '<span class="finding-title">' + name + ' (' + type + ')</span>';
+        html += '<span class="finding-title">' + _esc(name) + ' (' + _esc(type) + ')</span>';
         html += '<span class="finding-badge ' + (enabled ? 'badge-pass' : 'badge-info') + '">' + (enabled ? 'UP' : 'DOWN') + '</span>';
         html += '</div>';
         html += '<div class="finding-desc"><div style="display:grid;grid-template-columns:100px 1fr;gap:4px 12px;font-size:12px;">';
-        if (addresses.length > 0) html += '<span style="font-weight:600">IP</span><span>' + addresses.join(', ') + '</span>';
-        html += '<span style="font-weight:600">Gateway</span><span>' + gateway + '</span>';
-        html += '<span style="font-weight:600">DNS</span><span>' + dns + '</span>';
-        html += '<span style="font-weight:600">MAC</span><span><code style="font-size:11px">' + mac + '</code></span>';
-        html += '<span style="font-weight:600">Method</span><span>' + method + '</span>';
+        if (addresses.length > 0) html += '<span style="font-weight:600">IP</span><span>' + _esc(addresses.join(', ')) + '</span>';
+        html += '<span style="font-weight:600">Gateway</span><span>' + _esc(gateway) + '</span>';
+        html += '<span style="font-weight:600">DNS</span><span>' + _esc(dns) + '</span>';
+        html += '<span style="font-weight:600">MAC</span><span><code style="font-size:11px">' + _esc(mac) + '</code></span>';
+        html += '<span style="font-weight:600">Method</span><span>' + _esc(method) + '</span>';
         if (wifi) {
-          html += '<span style="font-weight:600">SSID</span><span>' + (wifi.ssid || 'N/A') + '</span>';
-          html += '<span style="font-weight:600">Signal</span><span>' + (wifi.signal ? wifi.signal + '%' : 'N/A') + '</span>';
+          html += '<span style="font-weight:600">SSID</span><span>' + _esc(wifi.ssid || 'N/A') + '</span>';
+          html += '<span style="font-weight:600">Signal</span><span>' + _esc(wifi.signal ? wifi.signal + '%' : 'N/A') + '</span>';
         }
         html += '</div></div></div>';
       });
@@ -2187,7 +2019,7 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
         const hasIngress = a.ingress === true;
         const ports = a.ports ? Object.entries(a.ports).map(([port, config]) => `${port}${config.host_port ? `→${config.host_port}` : ''}`).join(', ') : 'N/A';
         const color = hasIngress ? '#4caf50' : a.state === 'started' ? '#ff9800' : '#9e9e9e';
-        html += `<tr><td>${this._sanitize(a.name)}</td><td style="color:${color}">${hasIngress ? '\u2713 Yes' : '\u2717 No'}</td><td><code style="font-size:12px;background:var(--bento-bg);padding:4px 8px;border-radius:4px">${ports}</code></td><td><span class="status-dot" style="background:${a.state === 'started' ? '#4caf50' : '#9e9e9e'}"></span>${a.state || 'stopped'}</td></tr>`;
+        html += `<tr><td>${_esc(a.name)}</td><td style="color:${color}">${hasIngress ? '\u2713 Yes' : '\u2717 No'}</td><td><code style="font-size:12px;background:var(--bento-bg);padding:4px 8px;border-radius:4px">${_esc(ports)}</code></td><td><span class="status-dot" style="background:${a.state === 'started' ? '#4caf50' : '#9e9e9e'}"></span>${_esc(a.state || 'stopped')}</td></tr>`;
       });
       html += '</tbody></table></div>';
     }
@@ -2231,9 +2063,9 @@ canvas, .canvas-container canvas { width: 100%; height: 200px; border: 1px solid
     d.integrations.forEach(e => {
       const statusColor = e.state === 'loaded' ? '#4caf50' : e.state === 'setup_error' ? '#f44336' : e.state === 'not_loaded' ? '#ff9800' : '#9e9e9e';
       const isHacs = e.source === 'hacs' || e.source === 'custom';
-      html += `<tr><td>${this._sanitize(e.title || e.domain)}</td><td style="font-family:monospace;font-size:12px">${e.domain}</td>`;
+      html += `<tr><td>${_esc(e.title || e.domain)}</td><td style="font-family:monospace;font-size:12px">${_esc(e.domain)}</td>`;
       html += `<td><span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;background:${isHacs ? 'rgba(255,152,0,0.1);color:#f57c00' : 'rgba(33,150,243,0.1);color:#1976d2'}">${isHacs ? '\u{1F3EA} HACS' : '\u{1F4E6} Core'}</span></td>`;
-      html += `<td style="color:${statusColor};font-weight:600">\u25CF ${e.state || 'unknown'}</td></tr>`;
+      html += `<td style="color:${statusColor};font-weight:600">\u25CF ${_esc(e.state || 'unknown')}</td></tr>`;
     });
     html += '</tbody></table></div></div>';
     return html;
@@ -2312,7 +2144,7 @@ if (!customElements.get('ha-config-auditor')) {
 }
 
 console.info(
-  '%c  HA-CONFIG-AUDITOR  %c v5.0.2 ',
+  '%c  HA-CONFIG-AUDITOR  %c v5.0.6 ',
   'background: #f44336; color: white; font-weight: bold; padding: 2px 6px; border-radius: 4px 0 0 4px;',
   'background: #ffebee; color: #f44336; font-weight: bold; padding: 2px 6px; border-radius: 0 4px 4px 0;'
 );
